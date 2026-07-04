@@ -1,0 +1,157 @@
+@import "tailwindcss";
+
+@theme {
+  --color-canvas: #f8f9fa;
+  --color-surface: #ffffff;
+  --color-border: #e0e3e7;
+  --color-ink: #1f2328;
+  --color-ink-2: #57606a;
+  --color-primary: #1a73e8;
+  --color-primary-dim: #e8f0fe;
+  --color-pass: #188038;
+  --color-pass-dim: #e6f4ea;
+  --color-fail: #d93025;
+  --color-fail-dim: #fce8e6;
+  --color-warn: #e37400;
+  --color-warn-dim: #fef7e0;
+  --color-code: #f6f8fa;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+html {
+  font-size: 14px;
+}
+
+body {
+  @apply bg-canvas text-ink font-sans antialiased;
+}
+
+/* ---------- primitives ---------- */
+.card {
+  @apply bg-surface border border-border rounded-lg p-4;
+}
+.card-title {
+  @apply text-[15px] font-semibold mb-3 flex items-center justify-between gap-2;
+}
+
+.btn-primary,
+.btn-secondary,
+.btn-danger {
+  @apply inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-[13px] font-medium cursor-pointer select-none border border-transparent transition-colors;
+}
+.btn-primary {
+  @apply bg-primary text-white hover:bg-[#1765cc];
+}
+.btn-secondary {
+  @apply bg-surface border-border text-ink hover:bg-canvas;
+}
+.btn-danger {
+  @apply text-fail hover:bg-fail-dim;
+}
+.btn-primary[disabled],
+.btn-secondary[disabled],
+.btn-danger[disabled] {
+  @apply opacity-50 pointer-events-none;
+}
+
+.chip,
+.chip-pass,
+.chip-fail,
+.chip-warn,
+.chip-neutral,
+.chip-primary {
+  @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[12px] font-medium whitespace-nowrap;
+}
+.chip-pass {
+  @apply bg-pass-dim text-pass;
+}
+.chip-fail {
+  @apply bg-fail-dim text-fail;
+}
+.chip-warn {
+  @apply bg-warn-dim text-warn;
+}
+.chip-neutral {
+  @apply bg-canvas text-ink-2 border border-border;
+}
+.chip-primary {
+  @apply bg-primary-dim text-primary;
+}
+
+.tbl {
+  @apply w-full text-[13px] border-collapse;
+}
+.tbl th {
+  @apply text-left font-medium text-ink-2 text-[12px] py-2 px-3 border-b border-border sticky top-0 bg-surface;
+}
+.tbl td {
+  @apply py-2 px-3 border-b border-border align-top;
+}
+.tbl tbody tr:hover {
+  @apply bg-code;
+}
+
+.lbl {
+  @apply block text-[12px] font-medium text-ink-2 mb-1;
+}
+.inp {
+  @apply w-full h-8 px-2.5 rounded-md border border-border bg-surface text-[13px] outline-none focus:border-primary focus:ring-2 focus:ring-primary/20;
+}
+textarea.inp {
+  @apply h-auto py-2 min-h-20 font-mono text-[12.5px];
+}
+
+.mono {
+  @apply font-mono text-[12.5px];
+}
+.codeblock {
+  @apply font-mono text-[12.5px] bg-code border border-border rounded-md p-2.5 whitespace-pre-wrap break-words;
+}
+.page-title {
+  @apply text-[20px] font-semibold;
+}
+.caption {
+  @apply text-[12px] text-ink-2;
+}
+a.link {
+  @apply text-primary hover:underline cursor-pointer;
+}
+
+/* ---------- nav ---------- */
+.nav-item {
+  @apply flex items-center gap-2.5 px-3 py-2 rounded-full text-[13px] font-medium text-ink-2 hover:bg-canvas cursor-pointer no-underline;
+}
+.nav-item.active {
+  @apply bg-primary-dim text-primary;
+}
+
+/* ---------- diff ---------- */
+.diff-line {
+  @apply font-mono text-[12.5px] block px-2 whitespace-pre-wrap break-words;
+}
+.diff-add {
+  @apply bg-pass-dim;
+}
+.diff-del {
+  @apply bg-fail-dim line-through decoration-fail/40;
+}
+
+/* ---------- trace timeline ---------- */
+.trace-step {
+  @apply border border-border rounded-md bg-surface;
+}
+.trace-step.active {
+  @apply border-primary ring-2 ring-primary/20;
+}
+
+/* ---------- wizard ---------- */
+.step-dot {
+  @apply w-6 h-6 rounded-full flex items-center justify-center text-[12px] font-semibold border border-border bg-surface text-ink-2;
+}
+.step-dot.active {
+  @apply bg-primary text-white border-primary;
+}
+.step-dot.done {
+  @apply bg-primary-dim text-primary border-primary/30;
+}

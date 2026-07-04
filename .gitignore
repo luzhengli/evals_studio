@@ -1,0 +1,7 @@
+node_modules/
+data/
+artifacts/
+public/main.js
+public/app.css
+*.log
+.DS_Store
