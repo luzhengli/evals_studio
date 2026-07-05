@@ -1,0 +1,148 @@
+{
+  "project": "Agent Eval Studio",
+  "platform": "web+backend+cli",
+  "updated": "2026-07-05",
+  "source_documents": [
+    "CLAUDE.md",
+    "DESIGN.md",
+    "progress.md"
+  ],
+  "status_values": [
+    "passing",
+    "failing",
+    "blocked"
+  ],
+  "features": [
+    {
+      "id": "foundation.agent-handoff",
+      "priority": "P0",
+      "category": "foundation",
+      "description": "A fresh agent can understand project state, startup commands, verification requirements, and next steps without prior chat history.",
+      "acceptance": [
+        "Read `CLAUDE.md` for project architecture and non-negotiable engineering principles.",
+        "Read `progress.md` for current state, startup checklist, constraints, and session handoff.",
+        "Read `feature_list.json` for machine-readable acceptance criteria and verification status.",
+        "Confirm `AGENTS.md` remains a pointer to `CLAUDE.md` and is not expanded during this harness supplement."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-05",
+      "notes": "Verified `progress.md`, `feature_list.json`, and `init.sh` exist; `feature_list.json` parses; `AGENTS.md` was left unchanged as a pointer to `CLAUDE.md`."
+    },
+    {
+      "id": "foundation.bootstrap-command",
+      "priority": "P0",
+      "category": "foundation",
+      "description": "The project has a safe fresh-session bootstrap entry point for dependency setup and baseline verification.",
+      "acceptance": [
+        "Run `./init.sh --skip-build` from the repository root and confirm it checks Bun availability and dependency setup.",
+        "Run `./init.sh` from the repository root and confirm it completes the default baseline verification.",
+        "Confirm `./init.sh --help` documents safe flags and does not include destructive cleanup or data reset behavior."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-05",
+      "notes": "`./init.sh --help` documented safe flags; default `./init.sh` completed Bun check, `bun install`, `bun run test`, and `bun run build:web` successfully."
+    },
+    {
+      "id": "foundation.offline-tests",
+      "priority": "P0",
+      "category": "verification",
+      "description": "The deterministic offline test suite validates the core prompt/skill evaluation loops without network access.",
+      "acceptance": [
+        "Run `bun run test` from the repository root.",
+        "Verify e2e prompt and skill tests pass using mock engine and mock judge paths.",
+        "Verify no real LLM endpoint or external network dependency is required for the test run."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-05",
+      "notes": "`bun run test` passed: 48 pass, 0 fail, 160 expect() calls across 8 files."
+    },
+    {
+      "id": "foundation.web-build",
+      "priority": "P1",
+      "category": "verification",
+      "description": "The web assets can be built from the TypeScript SPA and Tailwind CSS sources.",
+      "acceptance": [
+        "Run `bun run build:web` from the repository root.",
+        "Verify `public/app.css` and `public/main.js` are generated from current sources.",
+        "Run this check after UI or design-system changes before claiming UI readiness."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-05",
+      "notes": "`bun run build:web` passed after `bun install`; generated `public/app.css` and `public/main.js`, both ignored by Git."
+    },
+    {
+      "id": "product.prompt-skill-peer-model",
+      "priority": "P0",
+      "category": "product",
+      "description": "Prompt and Skill are modeled as peer evaluation targets with shared experiment infrastructure and different metric taxonomies.",
+      "acceptance": [
+        "Verify `src/core/types.ts` keeps `TargetType` as `prompt | skill`.",
+        "Verify prompt metrics include instruction following, output quality, side-effect safety, and reliability.",
+        "Verify skill metrics include trigger accuracy, execution reliability, side-effect safety, and composition.",
+        "Verify tests cover both prompt and skill target end-to-end loops."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-05",
+      "notes": "Code inspection confirmed peer target and metric definitions; `bun run test` passed prompt and skill e2e suites."
+    },
+    {
+      "id": "product.attribution-counterfactuals",
+      "priority": "P0",
+      "category": "product",
+      "description": "Failed runs can be attributed through counterfactual replay to a concrete prompt, skill, tool, or base-model fix locus.",
+      "acceptance": [
+        "Run an experiment with failing samples.",
+        "Run attribution for the experiment.",
+        "Verify attributions include counterfactual evidence, root cause, fix layer, trace step index, and suggested fix.",
+        "Verify prompt-instruction, wrong-skill-selection, skill-execution, tool-call, and base-model causes remain distinguishable."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-05",
+      "notes": "`bun run test` passed e2e attribution coverage for prompt and skill loops; source inspection confirmed counterfactual root-cause taxonomy."
+    },
+    {
+      "id": "product.regression-gate",
+      "priority": "P0",
+      "category": "product",
+      "description": "Candidate versions are blocked when pass^k or any category metric regresses against the baseline.",
+      "acceptance": [
+        "Run an A/B prompt or skill experiment with a baseline and candidate version.",
+        "Verify pass^k mean, standard deviation, and delta are reported.",
+        "Verify the gate fails when any category metric regresses beyond the configured epsilon.",
+        "Verify pipeline artifacts include timing, grading, and benchmark JSON outputs."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-05",
+      "notes": "`bun run test` passed gate and e2e pipeline artifact coverage, including degraded candidate gate failure."
+    },
+    {
+      "id": "design.ui-routing",
+      "priority": "P1",
+      "category": "design",
+      "description": "UI work uses the project design language and no-framework DOM helper conventions.",
+      "acceptance": [
+        "Read `DESIGN.md` before UI, layout, visual state, or copy changes.",
+        "Use Tailwind CSS v4 tokens from `src/web/app.css` and component patterns from `src/web/components.ts`.",
+        "Use `src/web/dom.ts` helper patterns instead of introducing a frontend framework.",
+        "Treat prototypes or future design exports as conditional references unless the user explicitly asks to use them."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-05",
+      "notes": "Verified `DESIGN.md` exists and `bun run build:web` passed with the current Tailwind CSS v4 and vanilla TypeScript SPA setup."
+    }
+  ],
+  "conditional_reference_documents": [
+    {
+      "path": ".trae/project-harness/SKILL.md",
+      "use_when": "Only when initializing, repairing, or auditing project harness files."
+    },
+    {
+      "path": ".trae/project-harness/reference/harness-template.md",
+      "use_when": "Only when adapting the reusable harness template to this project."
+    },
+    {
+      "path": "DESIGN.md",
+      "use_when": "Mandatory for UI/UX work; otherwise read only when the task touches visual language, layout, components, states, or copy."
+    }
+  ]
+}

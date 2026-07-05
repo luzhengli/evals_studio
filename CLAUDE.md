@@ -10,6 +10,26 @@ Self-hosted, single-user web app for data-driven evaluation and self-evolution o
 - `bun run seed` — seed demo data (two e2e demos: prompt target + skill target)
 - `bun run pipeline` — offline CI pipeline: runs evals, emits `artifacts/{timing,grading,benchmark}.json`, applies regression gate (exit code 1 on negative regression)
 
+## Project Harness
+
+`AGENTS.md` intentionally points here, so this file is the primary harness entry for agents.
+
+Fresh-session workflow:
+
+1. Read `CLAUDE.md` for project architecture, commands, principles, and conventions.
+2. Read `progress.md` for current handoff state, latest verification, known constraints, and next steps.
+3. Read `feature_list.json` for machine-readable acceptance criteria and verification status.
+4. Use `./init.sh` for safe baseline bootstrap and verification.
+
+Harness file responsibilities:
+
+- `CLAUDE.md`: stable project rules, architecture, commands, and non-negotiable engineering constraints.
+- `progress.md`: dated current state, session handoff, latest verification, and suggested next steps.
+- `feature_list.json`: feature acceptance criteria, pass/fail status, verification evidence, and conditional references.
+- `init.sh`: safe bootstrap only; it must not seed, delete, migrate, reset data, or call real external engines by default.
+
+Do not mark features passing in `feature_list.json` without real verification evidence. Do not modify `AGENTS.md` unless the project stops using `CLAUDE.md` as the harness entry.
+
 ## Architecture
 
 ```
