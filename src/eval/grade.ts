@@ -7,18 +7,21 @@ import type {
   ExecutionResult,
   Grading,
   Sample,
+  SkillDef,
   TargetType,
 } from "../core/types.ts";
 import { checkGroundTruth, checkTrajectory } from "./checkers.ts";
 import type { Judge } from "./judge.ts";
 import { gradeSideEffects, sideEffectOverallPass } from "./sideEffect.ts";
+import { checkToolUsage } from "./skillSpec.ts";
 
 export async function gradeRun(
   sample: Sample,
   targetType: TargetType,
   result: ExecutionResult,
   judge: Judge,
-  promptText: string
+  promptText: string,
+  skills: SkillDef[] = []
 ): Promise<Grading> {
   const assertions: AssertionResult[] = [];
 
@@ -118,6 +121,20 @@ export async function gradeRun(
             ? `correctly triggered "${expected}"`
             : `expected skill "${expected}", got ${actual ? `"${actual}"` : "none"}`,
     });
+    // allowed-tools boundary (agentskills.io): calls outside the skill's
+    // declared tool list are execution failures even when the output looks right
+    const selectedDef = skills.find((s) => s.name === actual) ?? null;
+    if (selectedDef && selectedDef.tools.length > 0) {
+      const usage = checkToolUsage(selectedDef, actual, result.trace);
+      assertions.push({
+        name: "tool-usage",
+        kind: "trajectory-match",
+        metric: "execution_reliability",
+        pass: usage.pass,
+        score: usage.pass ? 1 : 0,
+        evidence: usage.evidence,
+      });
+    }
     // execution reliability also covers engine-level tool errors
     if (result.error) {
       assertions.push({

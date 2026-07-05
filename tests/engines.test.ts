@@ -10,6 +10,8 @@ const sample = (over: Partial<Sample> = {}): Sample => ({
   sampleSetId: "set1",
   name: "t",
   input: "do the thing",
+  capability: null,
+  tier: null,
   groundTruth: null,
   expectedTrajectory: [],
   expectedSkill: null,

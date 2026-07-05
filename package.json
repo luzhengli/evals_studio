@@ -6,18 +6,23 @@
   "scripts": {
     "dev": "bun run build:web && bun --watch src/server/index.ts",
     "start": "bun run build:web && bun src/server/index.ts",
-    "build:web": "bun run build:css && bun build src/web/main.ts --outdir public --target browser",
+    "build:web": "bun run build:css && bun build src/web/main.tsx --outdir public --target browser",
     "build:css": "bunx @tailwindcss/cli -i src/web/app.css -o public/app.css",
     "test": "bun test",
     "seed": "bun src/scripts/seed.ts",
-    "pipeline": "bun src/pipeline/cli.ts"
+    "pipeline": "bun src/pipeline/cli.ts",
+    "e2e:codex": "bun src/scripts/codexE2e.ts"
   },
   "dependencies": {
     "@tailwindcss/cli": "^4.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "tailwindcss": "^4.0.0"
   },
   "devDependencies": {
     "@types/bun": "latest",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
     "typescript": "^5.6.0"
   }
 }

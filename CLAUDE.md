@@ -7,8 +7,9 @@ Self-hosted, single-user web app for data-driven evaluation and self-evolution o
 - `bun install` — install deps
 - `bun run dev` — build web assets + start server (http://localhost:4747) with watch
 - `bun run test` — run all tests (bun:test, no network needed)
-- `bun run seed` — seed demo data (two e2e demos: prompt target + skill target)
+- `bun run seed` — seed demo data (prompt target + skill target + analysis agent/report demo)
 - `bun run pipeline` — offline CI pipeline: runs evals, emits `artifacts/{timing,grading,benchmark}.json`, applies regression gate (exit code 1 on negative regression)
+- `bun run e2e:codex` — OPT-IN verification against the real codex CLI (target → samples → experiment → run → trace → grading → attribution). Requires local `codex` + auth; exits 2 with a blocker message when unavailable. Never part of `bun test`.
 
 ## Project Harness
 
@@ -34,13 +35,16 @@ Do not mark features passing in `feature_list.json` without real verification ev
 
 ```
 src/
-  core/types.ts        Domain model: EvalTarget, TargetVersion, Sample, SampleSet,
-                       Experiment, Run, Trace, Attribution, BenchmarkReport
+  core/types.ts        Domain model: EvalTarget, TargetVersion, Sample (capability × tier),
+                       SampleSet, Experiment, Run, Trace, Attribution, BenchmarkReport,
+                       CoverageReport, AttributionAgent, AnalysisTask, ReportTemplate
+  core/trace.ts        Trace timeline utilities: sortTraceSteps (startedAt asc), traceErrors
   core/ids.ts          id generation
   db/                  SQLite (bun:sqlite) schema + repositories. Single file db at data/studio.db
   engines/             ExecutionEngine interface + implementations:
                        mock (deterministic, drives tests/demos), openai-compat (DeepSeek/GLM/any),
-                       codex, claude-code, pi-agent (CLI-backed)
+                       codex (parses `codex exec --json` JSONL events into timestamped trace
+                       steps with tokens/errors), claude-code, pi-agent (CLI-backed)
   sandbox/             LM-emulated / in-memory sandbox with snapshot+rollback. Side-effecting
                        tools NEVER execute for real; they mutate an isolated SandboxState.
   eval/
@@ -49,13 +53,20 @@ src/
     sideEffect.ts      3-level side-effect grader: semantic / audit-evidence / sandbox-state-harm
     runner.ts          pass^k experiment runner (k attempts per sample, per arm)
     metrics.ts         pass^k, mean, stddev, delta; per-type metric categories
+    skillSpec.ts       Agent Skills spec (agentskills.io) validation + allowed-tools grading
+    coverage.ts        capability × tier coverage matrix (B40/A30/E20/R10) + gap analysis
   attribution/         Counterfactual replay + root-cause classification
                        {prompt-instruction-defect | wrong-skill-selected |
                         right-skill-executed-poorly | tool-call-error | base-model-error}
-  optimize/            Prompt rewrite + skill patch suggestions; version diff; regression gate
+    agents.ts          Custom attribution agents (scenario + criteria) analyzing attribution items
+    report.ts          Report templates ({{placeholder}} markdown) + report generation
+  optimize/            Prompt rewrite + skill patch suggestions (incl. negativeTriggers from
+                       false-activation probes); version diff; regression gate
   pipeline/            Offline CI: timing.json + grading.json -> benchmark.json + gate
+  scripts/codexE2e.ts  Opt-in real-codex e2e (bun run e2e:codex)
   server/              Bun.serve JSON API + static hosting of public/
-  web/                 Vanilla-TS SPA (hash routing) + Tailwind CSS v4. Style guide: DESIGN.md
+  web/                 React 19 SPA (hash routing) + Tailwind CSS v4, zh/en i18n,
+                       concept help tooltips. Style guide: DESIGN.md
 tests/                 bun:test suites; everything runs offline via mock engine/judge
 ```
 
@@ -74,8 +85,9 @@ tests/                 bun:test suites; everything runs offline via mock engine/
 
 ## Conventions
 
-- TypeScript strict; Bun APIs (`bun:sqlite`, `Bun.serve`, `bun:test`). No Node-only deps.
+- TypeScript strict; Bun APIs (`bun:sqlite`, `Bun.serve`, `bun:test`). React 19 for the web UI only; no Node-only deps.
 - DB access only through `src/db/repo.ts`. JSON columns hold typed payloads serialized with `JSON.stringify`.
 - All engine/judge calls accept `AbortSignal`-free simple async fns; mock implementations must stay deterministic (seeded) so tests are stable.
-- Web UI: no framework; `src/web/dom.ts` `h()` helper; every page follows DESIGN.md tokens.
-- Tests must not hit the network. Real engines (codex/claude-code/openai-compat) are covered by interface-shape tests only.
+- Web UI: React 19 (hash router in `src/web/main.tsx`, shared components in `src/web/ui.tsx`); every page follows DESIGN.md tokens; all copy goes through `src/web/i18n.ts` (zh-CN default, en-US).
+- Trace steps are displayed in wall-clock order (`sortTraceSteps`); run-level and step-level errors must stay visible in the timeline and run detail.
+- Tests must not hit the network. Real engines (codex/claude-code/openai-compat) are covered by interface-shape tests plus the opt-in `bun run e2e:codex` (real CLI, never in `bun test`).

@@ -75,6 +75,7 @@ export class OpenAICompatEngine implements ExecutionEngine {
       input: req.sample.input,
       output: selectedSkill ? `selected skill: ${selectedSkill}` : "no skill selected",
       skillSelected: selectedSkill,
+      startedAt: started,
       durationMs: 0,
     });
     trace.push({
@@ -84,6 +85,7 @@ export class OpenAICompatEngine implements ExecutionEngine {
       input: req.sample.input,
       output,
       effectivePrompt: systemPrompt,
+      startedAt: started,
       durationMs: Date.now() - started,
       tokens,
     });
@@ -99,7 +101,11 @@ export function buildSystemPrompt(req: ExecutionRequest): string {
 
   const lines = [base, "", "## Available skills"];
   for (const s of skills) {
-    lines.push(`- ${s.name}: ${s.triggerDescription}\n  instructions: ${s.instructions}`);
+    lines.push(`- ${s.name}: ${s.description ?? s.triggerDescription}`);
+    if (s.description && s.triggerDescription) lines.push(`  use when: ${s.triggerDescription}`);
+    if (s.negativeTriggers?.length) lines.push(`  do NOT use when: ${s.negativeTriggers.join("; ")}`);
+    if (s.tools.length) lines.push(`  allowed tools: ${s.tools.join(", ")}`);
+    lines.push(`  instructions: ${s.instructions}`);
   }
   if (req.interventions?.forceSkill) {
     lines.push("", `You MUST use the skill "${req.interventions.forceSkill}" for this task.`);

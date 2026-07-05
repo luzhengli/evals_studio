@@ -22,11 +22,11 @@
         "Read `CLAUDE.md` for project architecture and non-negotiable engineering principles.",
         "Read `progress.md` for current state, startup checklist, constraints, and session handoff.",
         "Read `feature_list.json` for machine-readable acceptance criteria and verification status.",
-        "Confirm `AGENTS.md` remains a pointer to `CLAUDE.md` and is not expanded during this harness supplement."
+        "Confirm `AGENTS.md` remains a pointer to `CLAUDE.md`."
       ],
       "passes": true,
       "last_verified": "2026-07-05",
-      "notes": "Verified `progress.md`, `feature_list.json`, and `init.sh` exist; `feature_list.json` parses; `AGENTS.md` was left unchanged as a pointer to `CLAUDE.md`."
+      "notes": "Harness files updated in the attribution-eval enhancement session; `AGENTS.md` unchanged."
     },
     {
       "id": "foundation.bootstrap-command",
@@ -40,7 +40,7 @@
       ],
       "passes": true,
       "last_verified": "2026-07-05",
-      "notes": "`./init.sh --help` documented safe flags; default `./init.sh` completed Bun check, `bun install`, `bun run test`, and `bun run build:web` successfully."
+      "notes": "Verified earlier on 2026-07-05; init.sh unchanged this session, and its steps (`bun install`, `bun run test`, `bun run build:web`) were each re-run individually and passed."
     },
     {
       "id": "foundation.offline-tests",
@@ -54,21 +54,21 @@
       ],
       "passes": true,
       "last_verified": "2026-07-05",
-      "notes": "`bun run test` passed: 48 pass, 0 fail, 160 expect() calls across 8 files."
+      "notes": "`bun run test` passed: 77 pass, 0 fail, 243 expect() calls across 12 files (new suites: trace, coverage, skillSpec, analysis)."
     },
     {
       "id": "foundation.web-build",
       "priority": "P1",
       "category": "verification",
-      "description": "The web assets can be built from the TypeScript SPA and Tailwind CSS sources.",
+      "description": "The web assets can be built from the React SPA and Tailwind CSS sources.",
       "acceptance": [
         "Run `bun run build:web` from the repository root.",
-        "Verify `public/app.css` and `public/main.js` are generated from current sources.",
+        "Verify `public/app.css` and `public/main.js` are generated from `src/web/main.tsx`.",
         "Run this check after UI or design-system changes before claiming UI readiness."
       ],
       "passes": true,
       "last_verified": "2026-07-05",
-      "notes": "`bun run build:web` passed after `bun install`; generated `public/app.css` and `public/main.js`, both ignored by Git."
+      "notes": "`bun run build:web` bundles 23 modules from the React entry (`src/web/main.tsx`); `bunx tsc --noEmit` clean."
     },
     {
       "id": "product.prompt-skill-peer-model",
@@ -83,7 +83,7 @@
       ],
       "passes": true,
       "last_verified": "2026-07-05",
-      "notes": "Code inspection confirmed peer target and metric definitions; `bun run test` passed prompt and skill e2e suites."
+      "notes": "`bun run test` passed prompt and skill e2e suites unchanged after the enhancement work."
     },
     {
       "id": "product.attribution-counterfactuals",
@@ -98,7 +98,7 @@
       ],
       "passes": true,
       "last_verified": "2026-07-05",
-      "notes": "`bun run test` passed e2e attribution coverage for prompt and skill loops; source inspection confirmed counterfactual root-cause taxonomy."
+      "notes": "`bun run test` e2e attribution coverage passed; allowed-tools violations now classify as right-skill-executed-poorly with a concrete allowed-tools recommendation."
     },
     {
       "id": "product.regression-gate",
@@ -113,22 +113,112 @@
       ],
       "passes": true,
       "last_verified": "2026-07-05",
-      "notes": "`bun run test` passed gate and e2e pipeline artifact coverage, including degraded candidate gate failure."
+      "notes": "`bun run test` gate + pipeline artifact coverage passed."
     },
     {
-      "id": "design.ui-routing",
-      "priority": "P1",
-      "category": "design",
-      "description": "UI work uses the project design language and no-framework DOM helper conventions.",
+      "id": "product.trace-timeline",
+      "priority": "P0",
+      "category": "product",
+      "description": "Trace steps are ordered by actual start time and expose per-step time, duration, input/output, selected skill, tokens, and errors; run.error and step errors are clearly surfaced in the timeline and run detail.",
       "acceptance": [
-        "Read `DESIGN.md` before UI, layout, visual state, or copy changes.",
-        "Use Tailwind CSS v4 tokens from `src/web/app.css` and component patterns from `src/web/components.ts`.",
-        "Use `src/web/dom.ts` helper patterns instead of introducing a frontend framework.",
-        "Treat prototypes or future design exports as conditional references unless the user explicitly asks to use them."
+        "Verify `TraceStep` carries `startedAt` and `error` and engines populate them.",
+        "Verify `GET /api/runs/:id` returns steps sorted by `startedAt` (index fallback) plus `stepErrors`.",
+        "Verify the run page renders a run-error banner, step-error highlighting, tokens, wall-clock time and duration per step.",
+        "Run `bun test tests/trace.test.ts`."
       ],
       "passes": true,
       "last_verified": "2026-07-05",
-      "notes": "Verified `DESIGN.md` exists and `bun run build:web` passed with the current Tailwind CSS v4 and vanilla TypeScript SPA setup."
+      "notes": "tests/trace.test.ts (7 tests) passing; browser check on run_mr6m1d864j1t0z showed the 503 run-error banner, red failing tool-call step, tokens and durations."
+    },
+    {
+      "id": "product.skill-spec-alignment",
+      "priority": "P0",
+      "category": "product",
+      "description": "Skill evaluation aligns with the Agent Skills spec (agentskills.io): description-driven triggering, negative-trigger boundaries, allowed-tools grading, spec validation, and optimizer patches that encode negative examples.",
+      "acceptance": [
+        "Verify `SkillDef` supports description, negativeTriggers, tools (allowed-tools), compatibility, metadata.",
+        "Verify `validateSkillDef` enforces the SKILL.md frontmatter constraints (name/description/compatibility rules).",
+        "Verify tool calls outside a skill's `tools` list fail a `tool-usage` assertion under execution_reliability and are attributable.",
+        "Verify `proposeSkillPatch` adds negativeTriggers from false-activation probes.",
+        "Run `bun test tests/skillSpec.test.ts`."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-05",
+      "notes": "tests/skillSpec.test.ts (9 tests) passing; `POST /api/skills/validate` wired into the new-target form with live spec feedback."
+    },
+    {
+      "id": "product.coverage-matrix",
+      "priority": "P0",
+      "category": "product",
+      "description": "Samples carry capability × tier tags; coverage analysis reports the matrix, tier distribution vs the B40/A30/E20/R10 budget, and concrete gaps on the sample-set page and in reports.",
+      "acceptance": [
+        "Verify `Sample` has `capability` and `tier` fields persisted through the repo (with migration for old DBs).",
+        "Verify `computeCoverage` returns cells, tier distribution vs targets, and empty-cell/tier-deficit/untagged gaps.",
+        "Verify `GET /api/sample-sets/:id/coverage` and the sample-set page matrix with gap list.",
+        "Run `bun test tests/coverage.test.ts`."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-05",
+      "notes": "tests/coverage.test.ts (5 tests) passing; browser check on the jira sample set showed the 3×4 matrix, tier budget line and 8 gaps after tagging 5 samples via `POST /api/samples/:id/coverage`."
+    },
+    {
+      "id": "product.attribution-agents-reports",
+      "priority": "P0",
+      "category": "product",
+      "description": "Custom attribution agents (scenario + criteria) analyze an experiment's attribution items with tracked progress; reports render from customizable {{placeholder}} templates; the run page traces the full chain sample → run → trace → grading → attribution → agent findings.",
+      "acceptance": [
+        "Create an agent via `POST /api/agents`; run `POST /api/experiments/:id/analyses` and verify done/total progress and findings.",
+        "Verify analysis progress appears on the sample-set page (`GET /api/sample-sets/:id/analyses`).",
+        "Generate a report via `POST /api/reports` with the built-in and a custom template; verify placeholder rendering.",
+        "Verify `GET /api/runs/:id` includes attribution and agent findings for the single-question chain.",
+        "Run `bun test tests/analysis.test.ts`."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-05",
+      "notes": "tests/analysis.test.ts (7 tests) passing; live check: agent skill-triage analyzed 8/8 items, report rpt_mr7i6g1c041c8p rendered metrics/causes/findings/coverage/actions, run page showed attribution + findings."
+    },
+    {
+      "id": "product.codex-real-engine",
+      "priority": "P0",
+      "category": "product",
+      "description": "EngineKind=codex runs a minimal end-to-end experiment on the real codex CLI (target → sample set → experiment → run → trace → grading/attribution) via a repeatable opt-in command; default tests stay offline.",
+      "acceptance": [
+        "Verify the codex engine parses `codex exec --json` JSONL events into timestamped trace steps with tokens and errors (offline unit tests).",
+        "Run `bun run e2e:codex` on a machine with codex + auth and verify exit 0 with artifacts (benchmark/runs/traces/attributions/result.md).",
+        "Verify the command exits 2 with an explicit blocker message when codex or auth is missing.",
+        "Verify `bun run test` requires no codex binary or network."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-05",
+      "notes": "VERIFIED on this machine (codex-cli 0.139.0, auth present): pass^1 = 1.0 on 2 samples, 0 engine errors, timestamped traces with token counts; artifacts in artifacts/codex-e2e/result.md. Event parsing covered offline in tests/trace.test.ts."
+    },
+    {
+      "id": "design.react-ui",
+      "priority": "P1",
+      "category": "design",
+      "description": "The web UI is a React 19 SPA following DESIGN.md (Material-inspired, minimal, data-dense) with zh/en i18n and concept help tooltips; no leftover dual architecture.",
+      "acceptance": [
+        "Verify `src/web` contains only the React implementation (main.tsx, ui.tsx, pages/*.tsx, i18n.ts, api.ts, app.css).",
+        "Run `bun run build:web` and open the app; verify dashboard, targets, samples (matrix), experiments, run (timeline), attribution, agents, reports, settings routes render.",
+        "Verify concept help tooltips (pass^k, counterfactual, gate, side-effect levels, matrix, tiers, trace step) show accurate zh-CN copy.",
+        "Verify the language switcher toggles zh-CN/en-US."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-05",
+      "notes": "Old dom.ts/components.ts/pages/*.ts removed via git rm; browser walkthrough of dashboard, sample-set, run, reports pages rendered with zero console errors; tooltips verified in the dashboard snapshot."
+    },
+    {
+      "id": "design.designmd-spec",
+      "priority": "P2",
+      "category": "design",
+      "description": "DESIGN.md conforms to the google-labs-code/design.md specification.",
+      "acceptance": [
+        "Verify YAML front matter with name, colors, typography, rounded, spacing, and components token maps.",
+        "Verify body sections use the canonical order (Overview, Colors, Typography, Layout, Elevation & Depth, Shapes, Components, Do's and Don'ts) with no duplicate headings."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-05",
+      "notes": "Rewritten against the spec fetched from github.com/google-labs-code/design.md; tokens mirror src/web/app.css @theme values."
     }
   ],
   "conditional_reference_documents": [

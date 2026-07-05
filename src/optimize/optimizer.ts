@@ -79,7 +79,8 @@ export function proposePromptRewrite(
 /** Propose a skill patch: sharpen triggers on selection errors, harden instructions on execution errors. */
 export function proposeSkillPatch(
   baseVersion: TargetVersion,
-  attributions: Attribution[]
+  attributions: Attribution[],
+  opts: { negativeExamples?: string[] } = {}
 ): { proposedContent: string; rationale: string } {
   const skill: SkillDef = parseSkill(baseVersion.content);
   const skillAttrs = attributions.filter((a) => a.fixLayer === "skill");
@@ -92,6 +93,13 @@ export function proposeSkillPatch(
   if (selectionErrors) {
     skill.triggerDescription = `${skill.triggerDescription} Trigger ONLY when the task explicitly matches this description; when in doubt, do NOT trigger.`;
     rationaleParts.push(`${selectionErrors} selection failure(s): trigger description sharpened to reduce false activation.`);
+    // agentskills.io best practice: encode the negative boundary explicitly so
+    // description-based routing can rule out near-miss tasks
+    const negatives = (opts.negativeExamples ?? []).map((x) => `Do NOT trigger for tasks like: "${clip(x, 120)}"`);
+    if (negatives.length) {
+      skill.negativeTriggers = [...new Set([...(skill.negativeTriggers ?? []), ...negatives])];
+      rationaleParts.push(`${negatives.length} negative-trigger example(s) added from false-activation probes.`);
+    }
   }
   if (executionErrors) {
     skill.instructions = `${skill.instructions}\nExecute carefully: validate inputs, follow each step in order, and verify the result before finishing.`;
@@ -118,10 +126,20 @@ export function suggestFromAttributions(
   const base = repo.getVersion(target.activeVersionId);
   if (!base) throw new Error("active version missing");
 
+  // false-activation probes among the failing samples become explicit negative triggers
+  const negativeExamples =
+    target.type === "skill"
+      ? attributions
+          .filter((a) => a.rootCause === "wrong-skill-selected")
+          .map((a) => repo.getSample(a.sampleId))
+          .filter((s): s is NonNullable<typeof s> => s != null && s.expectedSkill === null)
+          .map((s) => s.input)
+      : [];
+
   const { proposedContent, rationale } =
     target.type === "prompt"
       ? proposePromptRewrite(base, attributions)
-      : proposeSkillPatch(base, attributions);
+      : proposeSkillPatch(base, attributions, { negativeExamples });
 
   return repo.createSuggestion({
     targetId,
@@ -146,3 +164,5 @@ export function acceptSuggestion(repo: Repo, suggestionId: string): TargetVersio
   repo.setSuggestionStatus(suggestionId, "accepted");
   return version;
 }
+
+const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n)}…` : s);

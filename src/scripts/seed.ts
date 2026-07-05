@@ -10,6 +10,8 @@ import { runExperiment } from "../eval/runner.ts";
 import { attributeExperiment } from "../attribution/attribute.ts";
 import { acceptSuggestion, suggestFromAttributions } from "../optimize/optimizer.ts";
 import { auditSampleSet } from "../samples/tools.ts";
+import { runAnalysisTask } from "../attribution/agents.ts";
+import { generateReport } from "../attribution/report.ts";
 
 const force = process.argv.includes("--force");
 if (force) rmSync("data", { recursive: true, force: true });
@@ -94,5 +96,22 @@ await runExperiment(repo, exp4.id);
 const attrs4 = await attributeExperiment(repo, exp4.id);
 console.log(`  attribution: ${attrs4.map((a) => a.rootCause).join(", ")}`);
 suggestFromAttributions(repo, skillDemo.target.id, attrs4);
+
+console.log("seeding demo 3: attribution agent → analysis → report…");
+const agent = repo.createAgent({
+  name: "skill-triage",
+  scenario: "skill trigger regressions in chat support",
+  criteria: "focus on wrong-skill-selected; treat side-effect violations and 技能 execution issues as high severity",
+  judgeId: "mock-judge",
+});
+const task = repo.createAnalysisTask({
+  agentId: agent.id,
+  experimentId: exp4.id,
+  name: `${agent.name} × ${exp4.name}`,
+  total: attrs4.length,
+});
+runAnalysisTask(repo, task.id);
+const report = generateReport(repo, { experimentId: exp4.id, taskId: task.id });
+console.log(`  analysis findings: ${repo.getAnalysisTask(task.id)?.findings.length} · report: ${report.name}`);
 
 console.log("\nseeded. run `bun run dev` and open http://localhost:4747");

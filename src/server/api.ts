@@ -2,12 +2,17 @@
 // return plain objects. Experiments run in-process (single-user tool).
 
 import { Repo } from "../db/repo.ts";
-import { runExperiment } from "../eval/runner.ts";
+import { parseSkill, runExperiment } from "../eval/runner.ts";
 import { attributeExperiment } from "../attribution/attribute.ts";
+import { runAnalysisTask } from "../attribution/agents.ts";
+import { ensureDefaultTemplate, generateReport } from "../attribution/report.ts";
 import { acceptSuggestion, suggestFromAttributions } from "../optimize/optimizer.ts";
 import { diffLines } from "../optimize/diff.ts";
 import { auditSampleSet, makeFalseActivationProbe, makeNearMissProbe } from "../samples/tools.ts";
 import { runPipeline } from "../pipeline/pipeline.ts";
+import { computeCoverage, nextTierSuggestion } from "../eval/coverage.ts";
+import { validateSkillDef } from "../eval/skillSpec.ts";
+import { sortTraceSteps, traceErrors } from "../core/trace.ts";
 import { now } from "../core/ids.ts";
 import type { Sample } from "../core/types.ts";
 
@@ -124,6 +129,8 @@ route("POST", "/api/sample-sets/:id/samples", ({ repo }, p, body) => {
     sampleSetId: p.id,
     name: body.name,
     input: body.input,
+    capability: body.capability || null,
+    tier: body.tier || null,
     groundTruth: body.groundTruth || null,
     expectedTrajectory: body.expectedTrajectory ?? [],
     expectedSkill: body.expectedSkill || null,
@@ -144,6 +151,46 @@ route("POST", "/api/sample-sets/:id/samples", ({ repo }, p, body) => {
   return created;
 });
 route("POST", "/api/sample-sets/:id/audit", ({ repo }, p) => auditSampleSet(repo, p.id));
+
+// ---- coverage matrix (capability × tier, B40/A30/E20/R10) ----
+route("GET", "/api/sample-sets/:id/coverage", ({ repo }, p) => {
+  const set = repo.getSampleSet(p.id);
+  if (!set) throw new NotFound("sample set");
+  const report = computeCoverage(p.id, repo.listSamples(p.id));
+  return { ...report, nextTier: nextTierSuggestion(report) };
+});
+route("POST", "/api/samples/:id/coverage", ({ repo }, p, body) => {
+  const sample = repo.getSample(p.id);
+  if (!sample) throw new NotFound("sample");
+  repo.updateSampleCoverage(p.id, body.capability || null, body.tier || null);
+  return repo.getSample(p.id);
+});
+
+// ---- analysis progress surfaced on the sample-set page ----
+route("GET", "/api/sample-sets/:id/analyses", ({ repo }, p) => {
+  const set = repo.getSampleSet(p.id);
+  if (!set) throw new NotFound("sample set");
+  const expIds = new Set(
+    repo
+      .listExperiments()
+      .filter((e) => e.sampleSetId === p.id)
+      .map((e) => e.id)
+  );
+  return repo
+    .listAnalysisTasks()
+    .filter((t) => expIds.has(t.experimentId))
+    .map((t) => ({ ...t, agentName: repo.getAgent(t.agentId)?.name ?? "?" }));
+});
+
+// ---- skill spec validation (agentskills.io) ----
+route("POST", "/api/skills/validate", (_ctx, _p, body) => {
+  try {
+    const skill = parseSkill(body.content ?? "");
+    return { valid: true, issues: validateSkillDef(skill) };
+  } catch (e: any) {
+    return { valid: false, issues: [`not a SkillDef JSON: ${e?.message ?? e}`] };
+  }
+});
 
 // ---- engines ----
 route("GET", "/api/engines", ({ repo }) => repo.listEngines());
@@ -203,11 +250,31 @@ route("POST", "/api/experiments/:id/pipeline", async ({ repo }, p) => {
 });
 
 // ---- runs & traces ----
+// Full execution chain for one question: run + sample + time-ordered trace
+// (with step errors surfaced) + attribution + agent analysis findings.
 route("GET", "/api/runs/:id", ({ repo }, p) => {
   const run = repo.getRun(p.id);
   if (!run) throw new NotFound("run");
   const sample = repo.getSample(run.sampleId);
-  return { run, sample, trace: repo.getTraceByRun(p.id) };
+  const rawTrace = repo.getTraceByRun(p.id);
+  const steps = rawTrace ? sortTraceSteps(rawTrace.steps) : [];
+  const attribution = repo.listAttributions(run.experimentId).find((a) => a.runId === run.id) ?? null;
+  const findings = repo
+    .listAnalysisTasks(run.experimentId)
+    .flatMap((t) =>
+      t.findings
+        .filter((f) => f.runId === run.id)
+        .map((f) => ({ ...f, taskId: t.id, taskName: t.name, agentName: repo.getAgent(t.agentId)?.name ?? "?" }))
+    );
+  return {
+    run,
+    sample,
+    trace: rawTrace ? { ...rawTrace, steps } : null,
+    stepErrors: traceErrors(steps),
+    attribution,
+    findings,
+    experiment: repo.getExperiment(run.experimentId),
+  };
 });
 
 // ---- attributions ----
@@ -230,6 +297,89 @@ route("POST", "/api/suggestions/:id/accept", ({ repo }, p) => acceptSuggestion(r
 route("POST", "/api/suggestions/:id/reject", ({ repo }, p) => {
   repo.setSuggestionStatus(p.id, "rejected");
   return { ok: true };
+});
+
+// ---- attribution agents ----
+route("GET", "/api/agents", ({ repo }) => repo.listAgents());
+route("POST", "/api/agents", ({ repo }, _p, body) => {
+  if (!body.name?.trim()) throw new ApiError(400, "agent name is required");
+  return repo.createAgent({
+    name: body.name.trim(),
+    scenario: body.scenario ?? "",
+    criteria: body.criteria ?? "",
+    judgeId: body.judgeId?.trim() || "mock-judge",
+  });
+});
+
+// ---- analysis tasks (pull attribution items, analyze with a chosen agent) ----
+route("GET", "/api/experiments/:id/analyses", ({ repo }, p) =>
+  repo.listAnalysisTasks(p.id).map((t) => ({ ...t, agentName: repo.getAgent(t.agentId)?.name ?? "?" }))
+);
+route("POST", "/api/experiments/:id/analyses", ({ repo }, p, body) => {
+  const exp = repo.getExperiment(p.id);
+  if (!exp) throw new NotFound("experiment");
+  const agent = repo.getAgent(body.agentId);
+  if (!agent) throw new ApiError(400, "agentId is required — create an attribution agent first");
+  const items = repo.listAttributions(p.id);
+  if (items.length === 0) throw new ApiError(400, "no attribution items for this experiment — run attribution first");
+  const task = repo.createAnalysisTask({
+    agentId: agent.id,
+    experimentId: p.id,
+    name: body.name?.trim() || `${agent.name} × ${exp.name}`,
+    total: items.length,
+  });
+  return runAnalysisTask(repo, task.id);
+});
+route("GET", "/api/analyses/:id", ({ repo }, p) => {
+  const task = repo.getAnalysisTask(p.id);
+  if (!task) throw new NotFound("analysis task");
+  return { ...task, agent: repo.getAgent(task.agentId), experiment: repo.getExperiment(task.experimentId) };
+});
+
+// ---- report templates ----
+route("GET", "/api/templates", ({ repo }) => {
+  ensureDefaultTemplate(repo);
+  return repo.listTemplates();
+});
+route("POST", "/api/templates", ({ repo }, _p, body) => {
+  if (!body.name?.trim() || !body.template?.trim()) throw new ApiError(400, "template name and content are required");
+  return repo.createTemplate({
+    name: body.name.trim(),
+    description: body.description ?? "",
+    template: body.template,
+    builtIn: false,
+  });
+});
+route("PUT", "/api/templates/:id", ({ repo }, p, body) => {
+  const tpl = repo.getTemplate(p.id);
+  if (!tpl) throw new NotFound("template");
+  if (tpl.builtIn) throw new ApiError(400, "built-in templates cannot be edited — create a copy instead");
+  repo.updateTemplate(p.id, { name: body.name, description: body.description, template: body.template });
+  return repo.getTemplate(p.id);
+});
+
+// ---- analysis reports ----
+route("GET", "/api/reports", ({ repo }, _p, _b, url) => {
+  const expId = url.searchParams.get("experimentId") ?? undefined;
+  return repo.listReports(expId).map((r) => ({
+    ...r,
+    experimentName: repo.getExperiment(r.experimentId)?.name ?? r.experimentId,
+    templateName: repo.getTemplate(r.templateId)?.name ?? r.templateId,
+  }));
+});
+route("POST", "/api/reports", ({ repo }, _p, body) => {
+  if (!body.experimentId) throw new ApiError(400, "experimentId is required");
+  return generateReport(repo, {
+    experimentId: body.experimentId,
+    templateId: body.templateId || undefined,
+    taskId: body.taskId || null,
+    name: body.name || undefined,
+  });
+});
+route("GET", "/api/reports/:id", ({ repo }, p) => {
+  const rep = repo.getReport(p.id);
+  if (!rep) throw new NotFound("report");
+  return rep;
 });
 
 // ---- settings ----

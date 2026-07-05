@@ -60,7 +60,16 @@ function armFromVersion(arm: Arm, version: TargetVersion): ArmSpec {
 export function parseSkill(content: string): SkillDef {
   const j = JSON.parse(content);
   if (!j || typeof j !== "object" || !j.name || !j.instructions) throw new Error("not a SkillDef");
-  return { name: j.name, triggerDescription: j.triggerDescription ?? "", instructions: j.instructions, tools: j.tools ?? [] };
+  return {
+    name: j.name,
+    description: j.description ?? undefined,
+    triggerDescription: j.triggerDescription ?? "",
+    negativeTriggers: Array.isArray(j.negativeTriggers) ? j.negativeTriggers : undefined,
+    instructions: j.instructions,
+    tools: j.tools ?? [],
+    compatibility: j.compatibility ?? undefined,
+    metadata: j.metadata ?? undefined,
+  };
 }
 
 export interface RunExperimentResult {
@@ -129,7 +138,7 @@ export async function executeAndGrade(
     skills: armSpec.skills,
     attempt,
   });
-  const grading = await gradeRun(sample, targetType, result, judge, armSpec.promptText);
+  const grading = await gradeRun(sample, targetType, result, judge, armSpec.promptText, armSpec.skills);
   const run = repo.createRun({
     experimentId: exp.id,
     sampleId: sample.id,

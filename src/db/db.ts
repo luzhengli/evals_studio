@@ -39,6 +39,8 @@ CREATE TABLE IF NOT EXISTS samples (
   sample_set_id TEXT NOT NULL REFERENCES sample_sets(id),
   name TEXT NOT NULL,
   input TEXT NOT NULL,
+  capability TEXT,
+  tier TEXT CHECK (tier IN ('B','A','E','R') OR tier IS NULL),
   ground_truth TEXT,
   expected_trajectory TEXT NOT NULL DEFAULT '[]',
   expected_skill TEXT,
@@ -134,7 +136,55 @@ CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS attribution_agents (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  scenario TEXT NOT NULL DEFAULT '',
+  criteria TEXT NOT NULL DEFAULT '',
+  judge_id TEXT NOT NULL DEFAULT 'mock-judge',
+  created_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS analysis_tasks (
+  id TEXT PRIMARY KEY,
+  agent_id TEXT NOT NULL REFERENCES attribution_agents(id),
+  experiment_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  total INTEGER NOT NULL DEFAULT 0,
+  done INTEGER NOT NULL DEFAULT 0,
+  findings TEXT NOT NULL DEFAULT '[]',
+  created_at INTEGER NOT NULL,
+  finished_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_analysis_experiment ON analysis_tasks(experiment_id);
+
+CREATE TABLE IF NOT EXISTS report_templates (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  template TEXT NOT NULL,
+  built_in INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS analysis_reports (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  template_id TEXT NOT NULL,
+  task_id TEXT,
+  experiment_id TEXT NOT NULL,
+  content TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
 `;
+
+/** Additive migrations for databases created before these columns existed. */
+const MIGRATIONS = [
+  "ALTER TABLE samples ADD COLUMN capability TEXT",
+  "ALTER TABLE samples ADD COLUMN tier TEXT",
+];
 
 export function openDb(path: string): Database {
   if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
@@ -142,6 +192,13 @@ export function openDb(path: string): Database {
   db.exec("PRAGMA journal_mode = WAL;");
   db.exec("PRAGMA foreign_keys = ON;");
   db.exec(SCHEMA);
+  for (const m of MIGRATIONS) {
+    try {
+      db.exec(m);
+    } catch {
+      // column already exists (fresh schema or previously migrated)
+    }
+  }
   return db;
 }
 

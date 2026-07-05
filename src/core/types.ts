@@ -37,13 +37,28 @@ export interface EvalTarget {
   createdAt: number;
 }
 
-/** Skill definition (content of a TargetVersion when type === 'skill'). */
+/**
+ * Skill definition (content of a TargetVersion when type === 'skill').
+ * Field set follows the Agent Skills spec (agentskills.io): `name` +
+ * `description` drive discovery/triggering; `tools` mirrors `allowed-tools`
+ * (tool calls outside this list are graded as execution failures).
+ */
 export interface SkillDef {
+  /** spec: 1-64 chars, lowercase alphanumerics + single hyphens */
   name: string;
+  /** spec: what the skill does AND when to use it (max 1024 chars) */
+  description?: string;
   /** When the skill SHOULD trigger — used to grade trigger_accuracy. */
   triggerDescription: string;
+  /** Negative boundary: situations that superficially match but must NOT trigger. */
+  negativeTriggers?: string[];
   instructions: string;
+  /** allowed tools (spec: allowed-tools); calls outside this list are misuse */
   tools: string[];
+  /** spec: environment requirements (max 500 chars) */
+  compatibility?: string;
+  /** spec: arbitrary key-value metadata */
+  metadata?: Record<string, string>;
 }
 
 export interface TargetVersion {
@@ -90,12 +105,24 @@ export interface ContaminationAudit {
   notes: string;
 }
 
+/**
+ * Coverage tiers for high-quality dataset construction:
+ * B basic (target 40%) · A advanced (30%) · E edge (20%) · R adversarial (10%).
+ */
+export const SAMPLE_TIERS = ["B", "A", "E", "R"] as const;
+export type SampleTier = (typeof SAMPLE_TIERS)[number];
+export const TIER_TARGETS: Record<SampleTier, number> = { B: 0.4, A: 0.3, E: 0.2, R: 0.1 };
+
 export interface Sample {
   id: string;
   sampleSetId: string;
   name: string;
   /** the user/task input given to the engine */
   input: string;
+  /** capability dimension this sample exercises (matrix row); null = untagged */
+  capability: string | null;
+  /** coverage tier (matrix column); null = untagged */
+  tier: SampleTier | null;
   groundTruth: string | null;
   expectedTrajectory: ExpectedTrajectoryStep[];
   /** for skill targets: which skill should trigger; null = skill must NOT trigger (false-activation probe) */
@@ -217,8 +244,12 @@ export interface TraceStep {
   effectivePrompt?: string;
   /** routing steps: which skill was selected and why */
   skillSelected?: string | null;
+  /** wall-clock start of the step (epoch ms) — timeline ordering key */
+  startedAt?: number;
   durationMs: number;
   tokens?: { input: number; output: number };
+  /** step-level failure, surfaced in timeline and run detail */
+  error?: string | null;
 }
 
 export interface Trace {
@@ -396,5 +427,110 @@ export interface OptimizationSuggestion {
   /** attribution ids that motivated this suggestion */
   attributionIds: string[];
   status: "proposed" | "accepted" | "rejected";
+  createdAt: number;
+}
+
+// ----- Coverage matrix (capability × tier) ----------------------------------------------
+
+export interface CoverageCell {
+  capability: string;
+  tier: SampleTier;
+  count: number;
+  sampleIds: string[];
+}
+
+export interface TierDistribution {
+  tier: SampleTier;
+  count: number;
+  /** share of tagged samples */
+  actual: number;
+  /** target share per B40/A30/E20/R10 */
+  target: number;
+  /** actual - target */
+  deviation: number;
+}
+
+export interface CoverageGap {
+  capability: string | null;
+  tier: SampleTier | null;
+  kind: "empty-cell" | "tier-deficit" | "untagged";
+  detail: string;
+}
+
+export interface CoverageReport {
+  sampleSetId: string;
+  total: number;
+  tagged: number;
+  untagged: number;
+  capabilities: string[];
+  cells: CoverageCell[];
+  tiers: TierDistribution[];
+  gaps: CoverageGap[];
+}
+
+// ----- Attribution agents & analysis --------------------------------------------------
+
+/** A configurable analysis agent: scenario + error-attribution criteria. */
+export interface AttributionAgent {
+  id: string;
+  name: string;
+  /** the analysis scenario this agent is built for */
+  scenario: string;
+  /** error-attribution criteria (free text; keyword rules drive the offline analyzer) */
+  criteria: string;
+  /** judge id used for LLM-backed analysis; 'mock-judge' keeps it offline */
+  judgeId: string;
+  createdAt: number;
+}
+
+export interface AnalysisFinding {
+  attributionId: string;
+  runId: string;
+  sampleId: string;
+  /** the engine-side root cause under review */
+  rootCause: RootCause;
+  /** whether the agent agrees with the counterfactual classification */
+  agreesWithRootCause: boolean;
+  severity: "low" | "medium" | "high";
+  /** agent's analysis under its configured criteria */
+  notes: string;
+}
+
+export interface AnalysisTask {
+  id: string;
+  agentId: string;
+  experimentId: string;
+  name: string;
+  status: "pending" | "running" | "done" | "failed";
+  /** progress over pulled attribution items */
+  total: number;
+  done: number;
+  findings: AnalysisFinding[];
+  createdAt: number;
+  finishedAt: number | null;
+}
+
+// ----- Analysis reports ----------------------------------------------------------------
+
+/** Markdown template with {{placeholder}} slots. */
+export interface ReportTemplate {
+  id: string;
+  name: string;
+  description: string;
+  template: string;
+  /** built-in templates cannot be deleted */
+  builtIn: boolean;
+  createdAt: number;
+}
+
+export interface AnalysisReport {
+  id: string;
+  name: string;
+  templateId: string;
+  /** analysis task the report was generated from (optional: reports can be ad hoc) */
+  taskId: string | null;
+  experimentId: string;
+  /** rendered markdown */
+  content: string;
   createdAt: number;
 }

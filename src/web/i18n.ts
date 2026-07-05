@@ -20,6 +20,8 @@ const en = {
   "nav.samples": "samples",
   "nav.experiments": "experiments",
   "nav.attribution": "attribution",
+  "nav.agents": "analysis agents",
+  "nav.reports": "reports",
   "nav.settings": "settings",
 
   // ---- shared ----
@@ -344,6 +346,131 @@ const en = {
   "settings.pipelineHelp":
     "# run evals for an experiment and gate the result (exit 1 on regression):\nbun run pipeline <experimentId> [outDir]\n# artifacts: timing.json · grading.json (per-assertion PASS/FAIL + evidence) · benchmark.json (mean+stddev+delta)",
 
+  // ---- concept help (small ⓘ tooltips) ----
+  "concept.passk":
+    "pass^k: every sample runs k times; it only counts as passed when ALL k attempts pass. Reported as mean ± stddev — exposes flakiness that pass@1 hides.",
+  "concept.counterfactual":
+    "Counterfactual attribution: each failing case is replayed under targeted interventions (rewrite prompt / force skill / disable skill / swap model). Whether the outcome flips pinpoints the layer that owns the failure.",
+  "concept.gate":
+    "Regression gate: a candidate version must not regress against the baseline on pass^k or ANY category metric (within ε tolerance); otherwise the version is blocked.",
+  "concept.sideEffect3":
+    "Side effects are graded on 3 independent endpoints: L1 semantic acceptance (is the answer right), L2 audit-visible evidence (is the paper trail compliant), L3 sandbox tool-state harm (was state damaged). A semantic pass never implies safety; effects only ever hit the emulated sandbox.",
+  "concept.matrix":
+    "Capability matrix: samples are placed in a capability-dimension × tier grid. The goal is to cross-cover the most scenarios with the fewest cases — every empty cell is a coverage gap.",
+  "concept.tiers":
+    "B/A/E/R tier budget: Basic 40% · Advanced 30% · Edge 20% · adveRsarial 10%. Deviations beyond tolerance are flagged as gaps.",
+  "concept.traceStep":
+    "Trace step: the smallest execution unit of a run (LLM call / tool call / skill routing / state / side effect), ordered by actual start time, with duration, input/output, tokens and errors.",
+
+  // ---- coverage matrix ----
+  "coverage.title": "coverage matrix (capability × tier)",
+  "coverage.tagged": "{tagged}/{total} samples tagged",
+  "coverage.untagged": "{count} untagged",
+  "coverage.capability": "capability",
+  "coverage.gaps": "coverage gaps",
+  "coverage.noGaps": "no coverage gaps",
+  "coverage.nextTier": "suggested next tier: {tier}",
+  "coverage.empty": "tag samples with a capability + tier to populate the matrix",
+  "coverage.target": "target",
+
+  // ---- tiers ----
+  "tier.B": "B basic",
+  "tier.A": "A advanced",
+  "tier.E": "E edge",
+  "tier.R": "R adversarial",
+
+  // ---- severity ----
+  "severity.low": "low",
+  "severity.medium": "medium",
+  "severity.high": "high",
+
+  // ---- extra table headers ----
+  "table.tier": "tier",
+  "table.capability": "capability",
+  "table.agent": "agent",
+  "table.progress": "progress",
+  "table.severity": "severity",
+  "table.time": "time",
+  "table.duration": "duration",
+  "table.tokens": "tokens",
+  "table.error": "error",
+  "table.scenario": "scenario",
+  "table.template": "template",
+
+  // ---- sample fields ----
+  "samples.capabilityLabel": "capability dimension",
+  "samples.capabilityPh": "e.g. format-compliance / trigger-precision",
+  "samples.tierLabel": "tier (B/A/E/R)",
+  "samples.analysisProgress": "analysis progress",
+  "samples.noAnalyses": "no agent analyses yet — run one from a finished experiment",
+  "samples.methodology":
+    "methodology: cover the most scenarios with the fewest cases — one capability × tier cell per sample; fill B first, then A/E/R per the 40/30/20/10 budget; every empty cell is a gap to author next.",
+
+  // ---- run detail extras ----
+  "run.errorBanner": "run error: {error}",
+  "run.stepErrors": "{count} step error(s) in this trace",
+  "run.attributionCard": "attribution for this run",
+  "run.findingsCard": "agent analysis findings",
+  "run.noTrace": "no trace recorded for this run",
+  "run.chain": "execution chain",
+  "run.chainHint": "sample → run → trace → grading → attribution → agent analysis",
+
+  // ---- analyses ----
+  "analysis.title": "agent analyses",
+  "analysis.new": "run agent analysis",
+  "analysis.chooseAgent": "analysis agent",
+  "analysis.noAgents": "no attribution agents yet — create one first",
+  "analysis.agentsBtn": "analysis agents",
+  "analysis.namePh": "analysis name (optional)",
+  "analysis.itemsHint": "pulls the attribution items of this experiment and analyzes each with the chosen agent",
+  "analysis.progress": "{done}/{total}",
+  "analysis.agrees": "confirms root cause",
+  "analysis.disputes": "no confirming flip",
+
+  // ---- attribution agents ----
+  "agents.title": "attribution agents",
+  "agents.subtitle":
+    "an agent bundles an analysis scenario and error-attribution criteria; analyses pull an experiment's attribution items and review each one under those criteria",
+  "agents.empty": "no agents yet — create one to analyze attribution results",
+  "agents.name": "name",
+  "agents.namePh": "e.g. skill-triage",
+  "agents.scenario": "analysis scenario",
+  "agents.scenarioPh": "what situation does this agent analyze? e.g. skill trigger regressions in chat support",
+  "agents.criteria": "attribution criteria",
+  "agents.criteriaPh":
+    "what to prioritize, e.g. focus on wrong-skill-selected; treat side-effect violations as high severity",
+  "agents.judge": "judge id",
+  "agents.create": "create agent",
+  "agents.nameRequired": "agent name is required",
+
+  // ---- reports ----
+  "reports.title": "analysis reports",
+  "reports.subtitle": "generate markdown reports from experiment data via customizable templates",
+  "reports.empty": "no reports yet — pick an experiment and generate one",
+  "reports.generate": "generate report",
+  "reports.chooseExperiment": "experiment",
+  "reports.chooseTemplate": "template",
+  "reports.chooseTask": "analysis task (optional)",
+  "reports.noTask": "— none —",
+  "reports.namePh": "report name (optional)",
+  "reports.templates": "report templates",
+  "reports.newTemplate": "new template",
+  "reports.templateName": "template name",
+  "reports.templateDesc": "description",
+  "reports.templateContent": "template (markdown with {{placeholders}})",
+  "reports.placeholdersHint":
+    "available placeholders: {{title}} {{experiment}} {{experimentId}} {{target}} {{targetType}} {{date}} {{agent}} {{metrics}} {{causes}} {{findings}} {{coverage}} {{actions}}",
+  "reports.saveTemplate": "save template",
+  "reports.builtIn": "built-in",
+  "reports.templateRequired": "template name and content are required",
+  "reports.view": "view",
+  "reports.backToList": "← reports",
+
+  // ---- skill spec ----
+  "skillspec.title": "agent-skills spec check",
+  "skillspec.ok": "conforms to the Agent Skills spec (agentskills.io)",
+  "skillspec.issues": "{count} spec issue(s)",
+
   // ---- language switcher ----
   "lang.label": "language",
 } as const;
@@ -360,6 +487,8 @@ const zh: Record<TranslationKey, string> = {
   "nav.samples": "样本集",
   "nav.experiments": "实验",
   "nav.attribution": "归因",
+  "nav.agents": "分析 Agent",
+  "nav.reports": "分析报告",
   "nav.settings": "设置",
 
   // ---- shared ----
@@ -671,6 +800,129 @@ const zh: Record<TranslationKey, string> = {
   "settings.pipeline": "流水线 / CI",
   "settings.pipelineHelp":
     "# 运行某个实验的评测并对结果做门禁（回归时 exit 1）：\nbun run pipeline <experimentId> [outDir]\n# 产物：timing.json · grading.json（按断言 PASS/FAIL + 证据）· benchmark.json（mean+stddev+delta）",
+
+  // ---- concept help (small ⓘ tooltips) ----
+  "concept.passk":
+    "pass^k:同一样本连续运行 k 次,k 次全部通过才计为通过。报告均值 ± 标准差,能暴露 pass@1 掩盖的不稳定性。",
+  "concept.counterfactual":
+    "反事实归因:对每个失败用例施加定向干预(重写提示词 / 强制技能 / 禁用技能 / 更换模型)后重放,依据结果是否翻转来定位失败所属的层。",
+  "concept.gate":
+    "回归门禁:候选版本在 pass^k 和所有分类指标上都不得劣于基线(允许 ε 容差),否则该版本被拦截,不能激活。",
+  "concept.sideEffect3":
+    "副作用三层评分:L1 语义接受(答案对不对)、L2 审计可见证据(留痕是否合规)、L3 沙箱工具状态危害(状态是否受损),三层独立评分;语义通过不代表副作用安全,副作用只作用于模拟沙箱。",
+  "concept.matrix":
+    "能力矩阵:把样本放入「能力维度 × 层级」网格,用尽可能少的用例交叉覆盖尽可能多的场景;每个空格都是一个覆盖缺口。",
+  "concept.tiers":
+    "B/A/E/R 分层配比:B 基础 40% · A 进阶 30% · E 边界 20% · R 对抗 10%。偏离超过容差会被标记为缺口。",
+  "concept.traceStep":
+    "trace step:一次运行中的最小执行单元(LLM 调用 / 工具调用 / 技能路由 / 状态 / 副作用),按实际开始时间排序,包含耗时、输入输出、token 与错误信息。",
+
+  // ---- coverage matrix ----
+  "coverage.title": "覆盖矩阵(能力 × 层级)",
+  "coverage.tagged": "已标注 {tagged}/{total} 个样本",
+  "coverage.untagged": "{count} 个未标注",
+  "coverage.capability": "能力维度",
+  "coverage.gaps": "覆盖缺口",
+  "coverage.noGaps": "无覆盖缺口",
+  "coverage.nextTier": "建议下一个补充层级:{tier}",
+  "coverage.empty": "为样本标注「能力维度 + 层级」后,矩阵将在此展示",
+  "coverage.target": "目标占比",
+
+  // ---- tiers ----
+  "tier.B": "B 基础",
+  "tier.A": "A 进阶",
+  "tier.E": "E 边界",
+  "tier.R": "R 对抗",
+
+  // ---- severity ----
+  "severity.low": "低",
+  "severity.medium": "中",
+  "severity.high": "高",
+
+  // ---- extra table headers ----
+  "table.tier": "层级",
+  "table.capability": "能力维度",
+  "table.agent": "Agent",
+  "table.progress": "进度",
+  "table.severity": "严重度",
+  "table.time": "开始时间",
+  "table.duration": "耗时",
+  "table.tokens": "tokens",
+  "table.error": "错误",
+  "table.scenario": "分析场景",
+  "table.template": "模板",
+
+  // ---- sample fields ----
+  "samples.capabilityLabel": "能力维度",
+  "samples.capabilityPh": "例如 format-compliance / trigger-precision",
+  "samples.tierLabel": "层级(B/A/E/R)",
+  "samples.analysisProgress": "分析进度",
+  "samples.noAnalyses": "暂无 Agent 分析 — 在已完成的实验中发起一次分析",
+  "samples.methodology":
+    "方法论:用尽可能少的用例交叉覆盖尽可能多的场景 — 每个样本占据一个「能力 × 层级」格;先补齐 B,再按 40/30/20/10 配比补 A/E/R;每个空格都是下一个要补的缺口。",
+
+  // ---- run detail extras ----
+  "run.errorBanner": "运行错误:{error}",
+  "run.stepErrors": "该 trace 中有 {count} 个步骤错误",
+  "run.attributionCard": "本次运行的归因",
+  "run.findingsCard": "Agent 分析结论",
+  "run.noTrace": "该运行没有记录 trace",
+  "run.chain": "执行链路",
+  "run.chainHint": "样本 → 运行 → 追踪 → 评分 → 归因 → Agent 分析",
+
+  // ---- analyses ----
+  "analysis.title": "Agent 分析",
+  "analysis.new": "发起 Agent 分析",
+  "analysis.chooseAgent": "分析 Agent",
+  "analysis.noAgents": "尚无归因 Agent — 请先创建一个",
+  "analysis.agentsBtn": "分析 Agent",
+  "analysis.namePh": "分析名称(可选)",
+  "analysis.itemsHint": "拉取该实验的归因题目,并用所选 Agent 逐条分析",
+  "analysis.progress": "{done}/{total}",
+  "analysis.agrees": "确认根因",
+  "analysis.disputes": "缺少翻转证据",
+
+  // ---- attribution agents ----
+  "agents.title": "归因分析 Agent",
+  "agents.subtitle": "Agent 由「分析场景 + 错误归因标准」组成;分析任务会拉取实验的归因题目,按该标准逐条评审",
+  "agents.empty": "暂无 Agent — 创建一个用于分析归因结果",
+  "agents.name": "名称",
+  "agents.namePh": "例如 skill-triage",
+  "agents.scenario": "分析场景",
+  "agents.scenarioPh": "该 Agent 面向什么场景?例如:客服对话中的技能触发回归",
+  "agents.criteria": "错误归因标准",
+  "agents.criteriaPh": "优先关注什么?例如:聚焦 wrong-skill-selected;副作用违规一律视为高严重度",
+  "agents.judge": "评审 id",
+  "agents.create": "创建 Agent",
+  "agents.nameRequired": "Agent 名称为必填项",
+
+  // ---- reports ----
+  "reports.title": "分析报告",
+  "reports.subtitle": "基于可自定义模板,从实验数据生成 markdown 报告",
+  "reports.empty": "暂无报告 — 选择一个实验并生成",
+  "reports.generate": "生成报告",
+  "reports.chooseExperiment": "实验",
+  "reports.chooseTemplate": "模板",
+  "reports.chooseTask": "分析任务(可选)",
+  "reports.noTask": "— 无 —",
+  "reports.namePh": "报告名称(可选)",
+  "reports.templates": "报告模板",
+  "reports.newTemplate": "新建模板",
+  "reports.templateName": "模板名称",
+  "reports.templateDesc": "描述",
+  "reports.templateContent": "模板内容(markdown,支持 {{placeholders}})",
+  "reports.placeholdersHint":
+    "可用占位符:{{title}} {{experiment}} {{experimentId}} {{target}} {{targetType}} {{date}} {{agent}} {{metrics}} {{causes}} {{findings}} {{coverage}} {{actions}}",
+  "reports.saveTemplate": "保存模板",
+  "reports.builtIn": "内置",
+  "reports.templateRequired": "模板名称与内容为必填项",
+  "reports.view": "查看",
+  "reports.backToList": "← 报告列表",
+
+  // ---- skill spec ----
+  "skillspec.title": "Agent Skills 规范检查",
+  "skillspec.ok": "符合 Agent Skills 规范(agentskills.io)",
+  "skillspec.issues": "{count} 个规范问题",
 
   // ---- language switcher ----
   "lang.label": "语言",

@@ -2,12 +2,16 @@ import type { Database } from "bun:sqlite";
 import { getDb } from "./db.ts";
 import { id, now } from "../core/ids.ts";
 import type {
+  AnalysisReport,
+  AnalysisTask,
   Attribution,
+  AttributionAgent,
   BenchmarkReport,
   EngineConfig,
   EvalTarget,
   Experiment,
   OptimizationSuggestion,
+  ReportTemplate,
   Run,
   Sample,
   SampleSet,
@@ -144,15 +148,17 @@ export class Repo {
     const row: Sample = { ...s, id: id("smp"), createdAt: now() };
     this.db
       .query(
-        `INSERT INTO samples (id, sample_set_id, name, input, ground_truth, expected_trajectory,
+        `INSERT INTO samples (id, sample_set_id, name, input, capability, tier, ground_truth, expected_trajectory,
           expected_skill, expected_side_effects, tags, source, fresh_as_of, contamination, mock_spec, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         row.id,
         row.sampleSetId,
         row.name,
         row.input,
+        row.capability,
+        row.tier,
         row.groundTruth,
         J(row.expectedTrajectory),
         row.expectedSkill,
@@ -169,6 +175,10 @@ export class Repo {
 
   updateSampleContamination(sampleId: string, contamination: Sample["contamination"]) {
     this.db.query("UPDATE samples SET contamination = ? WHERE id = ?").run(J(contamination), sampleId);
+  }
+
+  updateSampleCoverage(sampleId: string, capability: string | null, tier: Sample["tier"]) {
+    this.db.query("UPDATE samples SET capability = ?, tier = ? WHERE id = ?").run(capability, tier, sampleId);
   }
 
   getSample(sid: string): Sample | null {
@@ -188,6 +198,8 @@ export class Repo {
       sampleSetId: r.sample_set_id,
       name: r.name,
       input: r.input,
+      capability: r.capability ?? null,
+      tier: r.tier ?? null,
       groundTruth: r.ground_truth,
       expectedTrajectory: P(r.expected_trajectory, []),
       expectedSkill: r.expected_skill,
@@ -443,6 +455,153 @@ export class Repo {
   getBenchmark(experimentId: string): BenchmarkReport | null {
     const r = this.db.query("SELECT report FROM benchmarks WHERE experiment_id = ?").get(experimentId) as any;
     return r ? P(r.report, null) : null;
+  }
+
+  // ---- attribution agents ----
+  createAgent(a: Omit<AttributionAgent, "id" | "createdAt">): AttributionAgent {
+    const row: AttributionAgent = { ...a, id: id("agt"), createdAt: now() };
+    this.db
+      .query("INSERT INTO attribution_agents (id, name, scenario, criteria, judge_id, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+      .run(row.id, row.name, row.scenario, row.criteria, row.judgeId, row.createdAt);
+    return row;
+  }
+
+  getAgent(aid: string): AttributionAgent | null {
+    const r = this.db.query("SELECT * FROM attribution_agents WHERE id = ?").get(aid) as any;
+    return r ? this.mapAgent(r) : null;
+  }
+
+  listAgents(): AttributionAgent[] {
+    return (this.db.query("SELECT * FROM attribution_agents ORDER BY created_at DESC").all() as any[]).map((r) =>
+      this.mapAgent(r)
+    );
+  }
+
+  private mapAgent(r: any): AttributionAgent {
+    return { id: r.id, name: r.name, scenario: r.scenario, criteria: r.criteria, judgeId: r.judge_id, createdAt: r.created_at };
+  }
+
+  // ---- analysis tasks ----
+  createAnalysisTask(t: Omit<AnalysisTask, "id" | "createdAt" | "finishedAt" | "status" | "done" | "findings">): AnalysisTask {
+    const row: AnalysisTask = { ...t, id: id("ana"), status: "pending", done: 0, findings: [], createdAt: now(), finishedAt: null };
+    this.db
+      .query(
+        `INSERT INTO analysis_tasks (id, agent_id, experiment_id, name, status, total, done, findings, created_at, finished_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(row.id, row.agentId, row.experimentId, row.name, row.status, row.total, row.done, J(row.findings), row.createdAt, row.finishedAt);
+    return row;
+  }
+
+  updateAnalysisTask(tid: string, patch: Partial<Pick<AnalysisTask, "status" | "total" | "done" | "findings" | "finishedAt">>) {
+    const cur = this.getAnalysisTask(tid);
+    if (!cur) throw new Error(`analysis task not found: ${tid}`);
+    const next = { ...cur, ...patch };
+    this.db
+      .query("UPDATE analysis_tasks SET status = ?, total = ?, done = ?, findings = ?, finished_at = ? WHERE id = ?")
+      .run(next.status, next.total, next.done, J(next.findings), next.finishedAt, tid);
+  }
+
+  getAnalysisTask(tid: string): AnalysisTask | null {
+    const r = this.db.query("SELECT * FROM analysis_tasks WHERE id = ?").get(tid) as any;
+    return r ? this.mapAnalysisTask(r) : null;
+  }
+
+  listAnalysisTasks(experimentId?: string): AnalysisTask[] {
+    const rows = experimentId
+      ? this.db.query("SELECT * FROM analysis_tasks WHERE experiment_id = ? ORDER BY created_at DESC").all(experimentId)
+      : this.db.query("SELECT * FROM analysis_tasks ORDER BY created_at DESC").all();
+    return (rows as any[]).map((r) => this.mapAnalysisTask(r));
+  }
+
+  private mapAnalysisTask(r: any): AnalysisTask {
+    return {
+      id: r.id,
+      agentId: r.agent_id,
+      experimentId: r.experiment_id,
+      name: r.name,
+      status: r.status,
+      total: r.total,
+      done: r.done,
+      findings: P(r.findings, []),
+      createdAt: r.created_at,
+      finishedAt: r.finished_at,
+    };
+  }
+
+  // ---- report templates ----
+  createTemplate(t: Omit<ReportTemplate, "id" | "createdAt">): ReportTemplate {
+    const row: ReportTemplate = { ...t, id: id("tpl"), createdAt: now() };
+    this.db
+      .query("INSERT INTO report_templates (id, name, description, template, built_in, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+      .run(row.id, row.name, row.description, row.template, row.builtIn ? 1 : 0, row.createdAt);
+    return row;
+  }
+
+  getTemplate(tid: string): ReportTemplate | null {
+    const r = this.db.query("SELECT * FROM report_templates WHERE id = ?").get(tid) as any;
+    return r ? this.mapTemplate(r) : null;
+  }
+
+  listTemplates(): ReportTemplate[] {
+    return (this.db.query("SELECT * FROM report_templates ORDER BY created_at ASC").all() as any[]).map((r) =>
+      this.mapTemplate(r)
+    );
+  }
+
+  updateTemplate(tid: string, patch: Partial<Pick<ReportTemplate, "name" | "description" | "template">>) {
+    const cur = this.getTemplate(tid);
+    if (!cur) throw new Error(`template not found: ${tid}`);
+    const next = { ...cur, ...patch };
+    this.db
+      .query("UPDATE report_templates SET name = ?, description = ?, template = ? WHERE id = ?")
+      .run(next.name, next.description, next.template, tid);
+  }
+
+  private mapTemplate(r: any): ReportTemplate {
+    return {
+      id: r.id,
+      name: r.name,
+      description: r.description,
+      template: r.template,
+      builtIn: r.built_in === 1,
+      createdAt: r.created_at,
+    };
+  }
+
+  // ---- analysis reports ----
+  createReport(rep: Omit<AnalysisReport, "id" | "createdAt">): AnalysisReport {
+    const row: AnalysisReport = { ...rep, id: id("rpt"), createdAt: now() };
+    this.db
+      .query(
+        "INSERT INTO analysis_reports (id, name, template_id, task_id, experiment_id, content, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+      )
+      .run(row.id, row.name, row.templateId, row.taskId, row.experimentId, row.content, row.createdAt);
+    return row;
+  }
+
+  getReport(rid: string): AnalysisReport | null {
+    const r = this.db.query("SELECT * FROM analysis_reports WHERE id = ?").get(rid) as any;
+    return r ? this.mapReport(r) : null;
+  }
+
+  listReports(experimentId?: string): AnalysisReport[] {
+    const rows = experimentId
+      ? this.db.query("SELECT * FROM analysis_reports WHERE experiment_id = ? ORDER BY created_at DESC").all(experimentId)
+      : this.db.query("SELECT * FROM analysis_reports ORDER BY created_at DESC").all();
+    return (rows as any[]).map((r) => this.mapReport(r));
+  }
+
+  private mapReport(r: any): AnalysisReport {
+    return {
+      id: r.id,
+      name: r.name,
+      templateId: r.template_id,
+      taskId: r.task_id,
+      experimentId: r.experiment_id,
+      content: r.content,
+      createdAt: r.created_at,
+    };
   }
 
   // ---- settings ----

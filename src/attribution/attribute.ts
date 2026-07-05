@@ -53,7 +53,7 @@ async function replayWith(
       interventions,
       attempt: 1,
     });
-    const grading = await gradeRun(sample, ctx.targetType, result, ctx.judge, ctx.armSpec.promptText);
+    const grading = await gradeRun(sample, ctx.targetType, result, ctx.judge, ctx.armSpec.promptText, ctx.armSpec.skills);
     // Interventions deliberately alter routing, so routing-dependent assertions
     // (trigger-accuracy, trajectory) are excluded from the flip verdict — only
     // outcome-level assertions count.
@@ -149,6 +149,13 @@ export async function attributeRun(ctx: AttributionContext, run: Run, sample: Sa
         expected === null
           ? `False activation: skill "${actual}" triggered on a task it should not handle${cf.outcomeFlipped ? "; disabling the skill fixes the outcome" : ""}. Sharpen the skill's triggerDescription with explicit negative conditions.`
           : `Wrong/missing skill selection (expected "${expected}", got ${actual ? `"${actual}"` : "none"})${cf.outcomeFlipped ? "; forcing the correct skill fixes the outcome" : ""}. Make the triggerDescription more discriminative for this scenario.`;
+    } else if (run.grading.assertions.some((a) => a.name === "tool-usage" && !a.pass)) {
+      // ---- execution layer: allowed-tools boundary violated (agentskills.io) ----
+      const usage = run.grading.assertions.find((a) => a.name === "tool-usage" && !a.pass)!;
+      rootCause = "right-skill-executed-poorly";
+      traceStepIndex = findTraceStep(trace, (s) => s.type === "tool-call") ?? llmIdx;
+      fixLayer = "skill";
+      recommendation = `Correct skill triggered but it invoked tools outside its allowed-tools list (${usage.evidence}). Either add the tool to the skill's tools declaration or rewrite the instructions to stay within the declared toolset.`;
     } else if (toolErrorIdx != null) {
       // ---- execution layer: tool errors ----
       rootCause = "tool-call-error";

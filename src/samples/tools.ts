@@ -98,6 +98,8 @@ export function sampleFromTrace(
     sampleSetId,
     name,
     input,
+    capability: null,
+    tier: null,
     groundTruth: finalOutput ? finalOutput : null,
     expectedTrajectory: trajectory,
     expectedSkill: routed?.skillSelected ?? null,

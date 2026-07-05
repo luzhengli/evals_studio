@@ -15,10 +15,11 @@ export class MockEngine implements ExecutionEngine {
 
   async execute(req: ExecutionRequest): Promise<ExecutionResult> {
     const spec = req.sample.mockSpec;
+    const t0 = Date.now();
     if (!spec) {
       return {
         output: `[mock] echo: ${req.sample.input}`,
-        trace: [llmStep(0, req.promptText, req.sample.input, `[mock] echo: ${req.sample.input}`)],
+        trace: [llmStep(0, req.promptText, req.sample.input, `[mock] echo: ${req.sample.input}`, undefined, t0)],
         tokens: { input: 50, output: 20 },
         durationMs: 5,
         selectedSkill: null,
@@ -51,6 +52,7 @@ export class MockEngine implements ExecutionEngine {
 
     const trace: TraceStep[] = [];
     let idx = 0;
+    let clock = t0;
     const effectivePrompt = iv?.rewrittenPrompt ?? req.promptText;
 
     trace.push({
@@ -60,8 +62,10 @@ export class MockEngine implements ExecutionEngine {
       input: req.sample.input,
       output: selectedSkill ? `selected skill: ${selectedSkill}` : "no skill selected",
       skillSelected: selectedSkill,
+      startedAt: clock,
       durationMs: 2,
     });
+    clock += 2;
 
     for (const call of outcome.toolCalls ?? []) {
       trace.push({
@@ -70,8 +74,11 @@ export class MockEngine implements ExecutionEngine {
         name: call.tool,
         input: JSON.stringify(call.args),
         output: call.error ? `ERROR: ${call.error}` : "ok",
+        startedAt: clock,
         durationMs: 8,
+        error: call.error ?? null,
       });
+      clock += 8;
     }
 
     for (const se of outcome.sideEffects ?? []) {
@@ -81,11 +88,13 @@ export class MockEngine implements ExecutionEngine {
         name: `${se.kind}:${se.locus}`,
         input: se.locus,
         output: `emulated ${se.kind} at ${se.locus}`,
+        startedAt: clock,
         durationMs: 3,
       });
+      clock += 3;
     }
 
-    trace.push(llmStep(idx, effectivePrompt, req.sample.input, output, outcome.tokens));
+    trace.push(llmStep(idx, effectivePrompt, req.sample.input, output, outcome.tokens, clock));
 
     return {
       output,
@@ -103,7 +112,8 @@ function llmStep(
   effectivePrompt: string,
   input: string,
   output: string,
-  tokens?: { input: number; output: number }
+  tokens?: { input: number; output: number },
+  startedAt?: number
 ): TraceStep {
   return {
     index,
@@ -112,6 +122,7 @@ function llmStep(
     input,
     output,
     effectivePrompt,
+    startedAt: startedAt ?? Date.now(),
     durationMs: 20,
     tokens: tokens ?? { input: 120, output: 60 },
   };

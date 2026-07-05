@@ -21,6 +21,8 @@ function baseSample(
 ): Omit<Sample, "id" | "createdAt"> {
   return {
     sampleSetId,
+    capability: null,
+    tier: null,
     groundTruth: null,
     expectedTrajectory: [],
     expectedSkill: null,
@@ -75,6 +77,8 @@ export function seedPromptDemo(repo: Repo, engine?: EngineConfig): PromptDemo {
       baseSample(sampleSet.id, {
         name: "format-strict changelog",
         input: "Changes: fix login crash; add dark mode; bump deps.",
+        capability: "format-compliance",
+        tier: "B",
         groundTruth: "regex:^## Release Notes",
         expectedTrajectory: [{ action: "respond" }],
         mockSpec: {
@@ -95,6 +99,8 @@ export function seedPromptDemo(repo: Repo, engine?: EngineConfig): PromptDemo {
       baseSample(sampleSet.id, {
         name: "flaky formatting",
         input: "Changes: new billing page.",
+        capability: "reliability",
+        tier: "A",
         groundTruth: "regex:^## Release Notes",
         mockSpec: {
           base: { output: "## Release Notes\n- New billing page" },
@@ -111,6 +117,8 @@ export function seedPromptDemo(repo: Repo, engine?: EngineConfig): PromptDemo {
       baseSample(sampleSet.id, {
         name: "simple changelog",
         input: "Changes: performance improvements.",
+        capability: "format-compliance",
+        tier: "B",
         groundTruth: "regex:^## Release Notes",
         mockSpec: {
           base: { output: "## Release Notes\n- Performance improvements" },
@@ -128,6 +136,8 @@ export function seedPromptDemo(repo: Repo, engine?: EngineConfig): PromptDemo {
       baseSample(sampleSet.id, {
         name: "writes notes file, must not notify",
         input: "Changes: security patch. Save notes to notes.md.",
+        capability: "side-effect-discipline",
+        tier: "R",
         groundTruth: "regex:^## Release Notes",
         expectedSideEffects: [{ kind: "file-write", locus: "notes.md", allowed: true }],
         tags: ["adversarial"],
@@ -169,7 +179,10 @@ export interface SkillDemo {
 
 export const JIRA_SKILL = {
   name: "create-jira-ticket",
+  description:
+    "Files issue-tracker tickets from natural-language bug reports. Use when the user wants a bug, task or incident recorded in the tracker.",
   triggerDescription: "Use when the user asks to file, create or open a bug/task ticket in the issue tracker.",
+  negativeTriggers: ["the user asks a question ABOUT the tracker or a board without requesting a new ticket"],
   instructions: "Extract title, severity and description from the request, then call the jira tool to create the ticket and reply with the ticket key.",
   tools: ["jira_create"],
 };
@@ -206,6 +219,8 @@ export function seedSkillDemo(repo: Repo, engine?: EngineConfig): SkillDemo {
       baseSample(sampleSet.id, {
         name: "clear bug report",
         input: "Please file a bug: the export button crashes on Safari.",
+        capability: "trigger-precision",
+        tier: "B",
         groundTruth: "PROJ-",
         expectedSkill: "create-jira-ticket",
         expectedTrajectory: [{ action: "skill:create-jira-ticket" }, { action: "jira_create" }, { action: "respond" }],
@@ -229,6 +244,8 @@ export function seedSkillDemo(repo: Repo, engine?: EngineConfig): SkillDemo {
       baseSample(sampleSet.id, {
         name: "implicit ticket request",
         input: "This login timeout keeps biting customers — make sure it gets tracked in our system.",
+        capability: "trigger-precision",
+        tier: "E",
         groundTruth: "PROJ-",
         expectedSkill: "create-jira-ticket",
         tags: ["near-miss", "adversarial"],
@@ -252,6 +269,8 @@ export function seedSkillDemo(repo: Repo, engine?: EngineConfig): SkillDemo {
       baseSample(sampleSet.id, {
         name: "mentions jira but asks a question",
         input: "What does the PROJ board in Jira show about last sprint's velocity?",
+        capability: "trigger-precision",
+        tier: "R",
         groundTruth: "velocity",
         expectedSkill: null,
         tags: ["false-activation", "adversarial"],
@@ -274,6 +293,8 @@ export function seedSkillDemo(repo: Repo, engine?: EngineConfig): SkillDemo {
       baseSample(sampleSet.id, {
         name: "severity must be preserved",
         input: "File a CRITICAL bug: data loss when syncing offline edits.",
+        capability: "execution-quality",
+        tier: "A",
         groundTruth: "exact:Created ticket PROJ-104 (severity: critical) for offline sync data loss.",
         expectedSkill: "create-jira-ticket",
         mockSpec: {
@@ -297,6 +318,8 @@ export function seedSkillDemo(repo: Repo, engine?: EngineConfig): SkillDemo {
       baseSample(sampleSet.id, {
         name: "tracker outage",
         input: "File a bug: settings page 500s for admins.",
+        capability: "tool-robustness",
+        tier: "E",
         groundTruth: "PROJ-",
         expectedSkill: "create-jira-ticket",
         mockSpec: {
