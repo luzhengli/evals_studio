@@ -36,8 +36,10 @@ export function clear(el: HTMLElement): HTMLElement {
   return el;
 }
 
+import { getLocale } from "./i18n.ts";
+
 export function fmtTime(ts: number): string {
-  return new Date(ts).toLocaleString(undefined, {
+  return new Date(ts).toLocaleString(getLocale(), {
     month: "short",
     day: "numeric",
     hour: "2-digit",

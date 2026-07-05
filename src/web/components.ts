@@ -1,6 +1,7 @@
 // Shared UI components per DESIGN.md.
 
 import { h, type Child, fmtNum } from "./dom.ts";
+import { t, tv } from "./i18n.ts";
 
 export function card(title: Child, action: Child, ...body: Child[]): HTMLElement {
   return h(
@@ -12,17 +13,17 @@ export function card(title: Child, action: Child, ...body: Child[]): HTMLElement
 }
 
 export function passChip(pass: boolean, label?: string): HTMLElement {
-  return h("span", { class: pass ? "chip-pass" : "chip-fail" }, label ?? (pass ? "PASS" : "FAIL"));
+  return h("span", { class: pass ? "chip-pass" : "chip-fail" }, label ?? (pass ? t("common.pass") : t("common.fail")));
 }
 
 export function statusChip(status: string): HTMLElement {
   const cls =
     status === "done" ? "chip-pass" : status === "failed" ? "chip-fail" : status === "running" ? "chip-warn" : "chip-neutral";
-  return h("span", { class: cls }, status);
+  return h("span", { class: cls }, tv("status", status));
 }
 
 export function typeChip(type: string): HTMLElement {
-  return h("span", { class: type === "prompt" ? "chip-primary" : "chip-warn" }, type);
+  return h("span", { class: type === "prompt" ? "chip-primary" : "chip-warn" }, tv("type", type));
 }
 
 export const ROOT_CAUSE_COLORS: Record<string, string> = {
@@ -38,7 +39,7 @@ export function causeChip(cause: string): HTMLElement {
   return h(
     "span",
     { class: "chip", style: `background:${color}1a;color:${color}` },
-    cause
+    tv("cause", cause)
   );
 }
 
@@ -54,7 +55,7 @@ export function metricTile(name: string, stat: { mean: number; stddev: number; d
   return h(
     "div",
     { class: "card !p-3 min-w-32" },
-    h("div", { class: "caption mb-1" }, name.replaceAll("_", " ")),
+    h("div", { class: "caption mb-1" }, tv("metric", name) === name ? name.replaceAll("_", " ") : tv("metric", name)),
     h(
       "div",
       { class: "flex items-baseline gap-2" },
@@ -105,8 +106,8 @@ export function tagChips(tags: string[]): HTMLElement {
   return h(
     "span",
     { class: "inline-flex gap-1 flex-wrap" },
-    ...tags.map((t) =>
-      h("span", { class: t === "false-activation" || t === "near-miss" ? "chip-warn" : "chip-neutral" }, t)
+    ...tags.map((tag) =>
+      h("span", { class: tag === "false-activation" || tag === "near-miss" ? "chip-warn" : "chip-neutral" }, tv("tag", tag))
     )
   );
 }
@@ -116,7 +117,7 @@ export function busyButton(label: string, cls: string, fn: () => Promise<void>):
   btn.addEventListener("click", async () => {
     btn.disabled = true;
     const orig = btn.textContent;
-    btn.textContent = "working…";
+    btn.textContent = t("common.working");
     try {
       await fn();
     } catch (e: any) {

@@ -1,14 +1,15 @@
 import { get, post } from "../api.ts";
 import { h, fmtTime, clear } from "../dom.ts";
 import { busyButton, card, emptyState, field, pageHeader, table, tagChips, typeChip } from "../components.ts";
+import { t, tv } from "../i18n.ts";
 
 export async function renderSampleSets(main: HTMLElement) {
   const sets = await get("/api/sample-sets");
-  main.appendChild(pageHeader("sample sets", h("a", { class: "btn-primary", href: "#/samples/new" }, "+ new sample set")));
+  main.appendChild(pageHeader(t("samples.title"), h("a", { class: "btn-primary", href: "#/samples/new" }, t("samples.new"))));
 
   if (sets.length === 0) {
     main.appendChild(
-      emptyState("no sample sets yet — the wizard walks you through goal → scenario → cases → fields", h("a", { class: "btn-primary", href: "#/samples/new" }, "start wizard"))
+      emptyState(t("samples.empty"), h("a", { class: "btn-primary", href: "#/samples/new" }, t("samples.startWizard")))
     );
     return;
   }
@@ -17,7 +18,7 @@ export async function renderSampleSets(main: HTMLElement) {
       null,
       null,
       table(
-        ["name", "target", "type", "samples", "goal"],
+        [t("table.name"), t("table.target"), t("table.type"), t("table.samples"), t("table.goal")],
         sets.map((s: any) => [
           h("a", { class: "link font-medium", href: `#/samples/${s.id}` }, s.name),
           s.targetName,
@@ -34,9 +35,9 @@ export async function renderSampleSets(main: HTMLElement) {
 
 export async function renderSampleSetWizard(main: HTMLElement) {
   const targets = await get("/api/targets");
-  main.appendChild(pageHeader("new sample set"));
+  main.appendChild(pageHeader(t("samples.wizardTitle")));
   if (targets.length === 0) {
-    main.appendChild(emptyState("create an eval target first", h("a", { class: "btn-primary", href: "#/targets" }, "go to targets")));
+    main.appendChild(emptyState(t("samples.createTargetFirst"), h("a", { class: "btn-primary", href: "#/targets" }, t("samples.goToTargets"))));
     return;
   }
 
@@ -49,7 +50,7 @@ export async function renderSampleSetWizard(main: HTMLElement) {
     description: "",
     cases: [] as { name: string; input: string }[],
   };
-  const STEPS = ["goal", "scenario", "cases", "fields"];
+  const STEPS = [t("samples.stepGoal"), t("samples.stepScenario"), t("samples.stepCases"), t("samples.stepFields")];
   const body = h("div", {});
   main.appendChild(card(null, null, body));
 
@@ -74,17 +75,17 @@ export async function renderSampleSetWizard(main: HTMLElement) {
       const targetSel = h(
         "select",
         { class: "inp", onchange: (e: Event) => (state.targetId = (e.target as HTMLSelectElement).value) },
-        ...targets.map((t: any) => h("option", { value: t.id, selected: t.id === state.targetId }, `${t.name} (${t.type})`))
+        ...targets.map((tg: any) => h("option", { value: tg.id, selected: tg.id === state.targetId }, `${tg.name} (${tv("type", tg.type)})`))
       );
       content.append(
-        field("attach to eval target", targetSel, "samples hang off a prompt or skill target — both are first-class"),
-        field("sample set name", bound("name", "e.g. release-notes core set")),
-        field("evaluation goal", boundTa("goal", "what should this sample set verify about the target?"))
+        field(t("samples.attachTarget"), targetSel, t("samples.attachTargetHint")),
+        field(t("samples.setName"), bound("name", t("samples.setNamePh"))),
+        field(t("samples.goalLabel"), boundTa("goal", t("samples.goalPh")))
       );
     } else if (state.step === 1) {
       content.append(
-        field("scenario analysis", boundTa("scenario", "who uses this, in what situation, what varies, what goes wrong?"), "capture the real-world scenario the cases must cover — include failure-prone variations"),
-        field("description", bound("description", "one-line summary"))
+        field(t("samples.scenarioLabel"), boundTa("scenario", t("samples.scenarioPh")), t("samples.scenarioHint")),
+        field(t("samples.descriptionLabel"), bound("description", t("samples.descriptionPh")))
       );
     } else if (state.step === 2) {
       const list = h("div", { class: "flex flex-col gap-2" });
@@ -95,8 +96,8 @@ export async function renderSampleSetWizard(main: HTMLElement) {
             h(
               "div",
               { class: "flex gap-2 items-start" },
-              h("input", { class: "inp !w-56", value: c.name, placeholder: "case name", oninput: (e: Event) => (state.cases[i].name = (e.target as HTMLInputElement).value) }),
-              h("textarea", { class: "inp flex-1 !min-h-9", value: c.input, placeholder: "task input given to the engine", oninput: (e: Event) => (state.cases[i].input = (e.target as HTMLTextAreaElement).value) }),
+              h("input", { class: "inp !w-56", value: c.name, placeholder: t("samples.caseNamePh"), oninput: (e: Event) => (state.cases[i].name = (e.target as HTMLInputElement).value) }),
+              h("textarea", { class: "inp flex-1 !min-h-9", value: c.input, placeholder: t("samples.caseInputPh"), oninput: (e: Event) => (state.cases[i].input = (e.target as HTMLTextAreaElement).value) }),
               h("button", { class: "btn-danger", onclick: () => { state.cases.splice(i, 1); renderCases(); } }, "✕")
             )
           );
@@ -104,17 +105,22 @@ export async function renderSampleSetWizard(main: HTMLElement) {
       };
       renderCases();
       content.append(
-        h("p", { class: "caption" }, "enumerate concrete use cases; adversarial probes (false-activation / near-miss) can be generated per sample afterwards"),
+        h("p", { class: "caption" }, t("samples.casesHint")),
         list,
-        h("button", { class: "btn-secondary self-start", onclick: () => { state.cases.push({ name: "", input: "" }); renderCases(); } }, "+ add case")
+        h("button", { class: "btn-secondary self-start", onclick: () => { state.cases.push({ name: "", input: "" }); renderCases(); } }, t("samples.addCase"))
       );
     } else {
       content.append(
-        h("p", { class: "text-[13px]" }, "the wizard creates the set and its cases; per-sample fields (ground truth, expected trajectory, expected skill, side-effect allowlist, tags) are defined next on the set page."),
+        h("p", { class: "text-[13px]" }, t("samples.fieldsNote")),
         h(
           "div",
           { class: "codeblock" },
-          `set: ${state.name}\ntarget: ${targets.find((t: any) => t.id === state.targetId)?.name}\ngoal: ${state.goal}\ncases: ${state.cases.filter((c) => c.input.trim()).length}`
+          t("samples.summary", {
+            name: state.name,
+            target: targets.find((tg: any) => tg.id === state.targetId)?.name ?? "?",
+            goal: state.goal,
+            cases: state.cases.filter((c) => c.input.trim()).length,
+          })
         )
       );
     }
@@ -123,14 +129,14 @@ export async function renderSampleSetWizard(main: HTMLElement) {
       h(
         "div",
         { class: "flex justify-end gap-2" },
-        state.step > 0 ? h("button", { class: "btn-secondary", onclick: () => { state.step--; render(); } }, "back") : null,
+        state.step > 0 ? h("button", { class: "btn-secondary", onclick: () => { state.step--; render(); } }, t("common.back")) : null,
         state.step < 3
           ? h("button", { class: "btn-primary", onclick: () => {
-              if (state.step === 0 && !state.name.trim()) return alert("name is required");
+              if (state.step === 0 && !state.name.trim()) return alert(t("samples.nameRequired"));
               state.step++;
               render();
-            } }, "next")
-          : busyButton("create sample set", "btn-primary", async () => {
+            } }, t("common.next"))
+          : busyButton(t("samples.createSet"), "btn-primary", async () => {
               const set = await post("/api/sample-sets", state);
               for (const c of state.cases.filter((c) => c.input.trim())) {
                 await post(`/api/sample-sets/${set.id}/samples`, { name: c.name || c.input.slice(0, 40), input: c.input });
@@ -161,36 +167,36 @@ export async function renderSampleSetDetail(main: HTMLElement, id: string) {
   main.appendChild(
     pageHeader(
       set.name,
-      busyButton("run contamination audit", "btn-secondary", async () => {
+      busyButton(t("samples.runAudit"), "btn-secondary", async () => {
         await post(`/api/sample-sets/${id}/audit`);
         location.reload();
       }),
-      h("a", { class: "btn-primary", href: "#/experiments/new" }, "run experiment")
+      h("a", { class: "btn-primary", href: "#/experiments/new" }, t("common.runExperiment"))
     )
   );
   main.appendChild(
     h(
       "p",
       { class: "caption mb-4 -mt-2" },
-      `target: `,
+      t("samples.detailTarget"),
       h("a", { class: "link", href: `#/targets/${set.targetId}` }, target?.name ?? "?"),
-      set.goal ? ` · goal: ${set.goal}` : ""
+      set.goal ? t("samples.detailGoal", { goal: set.goal }) : ""
     )
   );
 
   main.appendChild(
     card(
-      `samples (${samples.length})`,
+      t("samples.listTitle", { count: samples.length }),
       null,
       samples.length === 0
-        ? h("p", { class: "caption py-2" }, "no samples yet — add one below")
+        ? h("p", { class: "caption py-2" }, t("samples.emptySamples"))
         : table(
-            ["name", "tags", "source", isSkill ? "expected skill" : "ground truth", "contamination", "fresh as of"],
+            [t("table.name"), t("table.tags"), t("table.source"), isSkill ? t("table.expectedSkill") : t("table.groundTruth"), t("table.contamination"), t("table.freshAsOf")],
             samples.map((s: any) => [
               h("span", { class: "font-medium" }, s.name),
               tagChips(s.tags),
-              h("span", { class: "chip-neutral" }, s.source),
-              h("span", { class: "mono caption" }, isSkill ? (s.expectedSkill ?? "∅ must not trigger") : (s.groundTruth ?? "judge-graded")),
+              h("span", { class: "chip-neutral" }, tv("source", s.source)),
+              h("span", { class: "mono caption" }, isSkill ? (s.expectedSkill ?? t("samples.mustNotTrigger")) : (s.groundTruth ?? t("samples.judgeGraded"))),
               contaminationChip(s.contamination),
               h("span", { class: "caption" }, fmtTime(s.freshAsOf)),
             ])
@@ -199,35 +205,35 @@ export async function renderSampleSetDetail(main: HTMLElement, id: string) {
   );
 
   // ---- add sample form (field definition step of the wizard) ----
-  const nameInp = inp("sample name");
-  const inputTa = ta("input prompt / task given to the engine");
-  const gtInp = inp("ground truth — plain containment, or prefix exact: / regex: / json: / code: (empty ⇒ LLM-judge)");
-  const trajInp = inp('expected trajectory, comma-separated actions e.g. "skill:create-jira-ticket, jira_create, respond"');
-  const skillInp = inp("expected skill name (empty ⇒ must NOT trigger — false-activation probe)");
-  const seInp = inp('allowed side effects e.g. "file-write:notes.md, api-call:jira.local/*" (anything else is a violation)');
+  const nameInp = inp(t("samples.sampleNamePh"));
+  const inputTa = ta(t("samples.inputPh"));
+  const gtInp = inp(t("samples.groundTruthPh"));
+  const trajInp = inp(t("samples.trajectoryPh"));
+  const skillInp = inp(t("samples.expectedSkillPh"));
+  const seInp = inp(t("samples.sideEffectsPh"));
   const tagsSel = h(
     "select",
     { class: "inp" },
-    ...["happy-path", "near-miss", "false-activation", "adversarial"].map((t) => h("option", { value: t }, t))
+    ...["happy-path", "near-miss", "false-activation", "adversarial"].map((tag) => h("option", { value: tag }, tv("tag", tag)))
   ) as HTMLSelectElement;
 
   main.appendChild(
     card(
-      "add sample — define fields",
+      t("samples.addTitle"),
       null,
       h(
         "div",
         { class: "grid grid-cols-2 gap-3 mb-3" },
-        field("name", nameInp),
-        field("tag", tagsSel, "false-activation & near-miss are the highest-value samples"),
-        h("div", { class: "col-span-2" }, field("input", inputTa)),
-        field("ground truth (oracle)", gtInp),
-        field("expected trajectory", trajInp),
-        isSkill ? field("expected skill", skillInp) : h("div"),
-        field("side-effect allowlist", seInp)
+        field(t("table.name"), nameInp),
+        field(t("samples.tagLabel"), tagsSel, t("samples.tagHint")),
+        h("div", { class: "col-span-2" }, field(t("samples.inputLabel"), inputTa)),
+        field(t("samples.groundTruthLabel"), gtInp),
+        field(t("samples.trajectoryLabel"), trajInp),
+        isSkill ? field(t("samples.expectedSkillLabel"), skillInp) : h("div"),
+        field(t("samples.sideEffectsLabel"), seInp)
       ),
-      busyButton("add sample", "btn-primary", async () => {
-        if (!nameInp.value.trim() || !inputTa.value.trim()) throw new Error("name and input are required");
+      busyButton(t("samples.addSample"), "btn-primary", async () => {
+        if (!nameInp.value.trim() || !inputTa.value.trim()) throw new Error(t("samples.addRequired"));
         await post(`/api/sample-sets/${id}/samples`, {
           name: nameInp.value.trim(),
           input: inputTa.value,
@@ -263,8 +269,8 @@ export async function renderSampleSetDetail(main: HTMLElement, id: string) {
 }
 
 function contaminationChip(c: any): HTMLElement {
-  if (!c?.audited) return h("span", { class: "chip-neutral" }, "unaudited");
+  if (!c?.audited) return h("span", { class: "chip-neutral" }, tv("contamination", "unaudited"));
   const cls = c.verdict === "clean" ? "chip-pass" : c.verdict === "suspect" ? "chip-warn" : "chip-fail";
-  const el = h("span", { class: cls, title: c.notes ?? "" }, c.verdict);
+  const el = h("span", { class: cls, title: c.notes ?? "" }, tv("contamination", c.verdict));
   return el;
 }

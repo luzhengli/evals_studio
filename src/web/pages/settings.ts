@@ -4,11 +4,12 @@
 import { get, post, put } from "../api.ts";
 import { h } from "../dom.ts";
 import { busyButton, card, field, pageHeader, table } from "../components.ts";
+import { t } from "../i18n.ts";
 
 export async function renderSettings(main: HTMLElement) {
   const [engines, settings] = await Promise.all([get("/api/engines"), get("/api/settings")]);
 
-  main.appendChild(pageHeader("settings"));
+  main.appendChild(pageHeader(t("settings.title")));
 
   // ---- engines ----
   const kindSel = h(
@@ -16,37 +17,37 @@ export async function renderSettings(main: HTMLElement) {
     { class: "inp" },
     ...["mock", "openai-compat", "codex", "claude-code", "pi-agent"].map((k) => h("option", { value: k }, k))
   ) as HTMLSelectElement;
-  const nameInp = h("input", { class: "inp", placeholder: "display name" }) as HTMLInputElement;
-  const baseUrlInp = h("input", { class: "inp", placeholder: "https://api.deepseek.com/v1 (openai-compat)" }) as HTMLInputElement;
-  const apiKeyInp = h("input", { class: "inp", type: "password", placeholder: "api key" }) as HTMLInputElement;
-  const modelInp = h("input", { class: "inp", placeholder: "model, e.g. deepseek-chat / glm-4" }) as HTMLInputElement;
-  const binInp = h("input", { class: "inp", placeholder: "binary path for CLI engines (codex / claude / pi)" }) as HTMLInputElement;
+  const nameInp = h("input", { class: "inp", placeholder: t("settings.namePh") }) as HTMLInputElement;
+  const baseUrlInp = h("input", { class: "inp", placeholder: t("settings.baseUrlPh") }) as HTMLInputElement;
+  const apiKeyInp = h("input", { class: "inp", type: "password", placeholder: t("settings.apiKeyPh") }) as HTMLInputElement;
+  const modelInp = h("input", { class: "inp", placeholder: t("settings.modelPh") }) as HTMLInputElement;
+  const binInp = h("input", { class: "inp", placeholder: t("settings.cliBinaryPh") }) as HTMLInputElement;
 
   main.appendChild(
     card(
-      "execution engines",
+      t("settings.engines"),
       null,
       engines.length
         ? table(
-            ["name", "kind", "config"],
+            [t("table.name"), t("table.kind"), t("table.config")],
             engines.map((e: any) => [
               h("span", { class: "font-medium" }, e.name),
               h("span", { class: "chip-neutral" }, e.kind),
               h("span", { class: "mono caption" }, summarizeConfig(e)),
             ])
           )
-        : h("p", { class: "caption py-2" }, "no engines configured"),
+        : h("p", { class: "caption py-2" }, t("settings.noEngines")),
       h(
         "div",
         { class: "grid grid-cols-3 gap-3 mt-4 mb-3" },
-        field("kind", kindSel),
-        field("name", nameInp),
-        field("model", modelInp),
-        field("base url", baseUrlInp),
-        field("api key", apiKeyInp),
-        field("cli binary", binInp)
+        field(t("settings.kind"), kindSel),
+        field(t("settings.name"), nameInp),
+        field(t("settings.model"), modelInp),
+        field(t("settings.baseUrl"), baseUrlInp),
+        field(t("settings.apiKey"), apiKeyInp),
+        field(t("settings.cliBinary"), binInp)
       ),
-      busyButton("add engine", "btn-primary", async () => {
+      busyButton(t("settings.addEngine"), "btn-primary", async () => {
         const config: Record<string, string> = {};
         if (baseUrlInp.value) config.baseUrl = baseUrlInp.value.trim();
         if (apiKeyInp.value) config.apiKey = apiKeyInp.value.trim();
@@ -59,20 +60,16 @@ export async function renderSettings(main: HTMLElement) {
   );
 
   // ---- judge ----
-  const jId = h("input", { class: "inp", placeholder: "judge id, e.g. deepseek-judge", value: settings["judge.default.id"] ?? "" }) as HTMLInputElement;
-  const jUrl = h("input", { class: "inp", placeholder: "base url" }) as HTMLInputElement;
-  const jKey = h("input", { class: "inp", type: "password", placeholder: "api key" }) as HTMLInputElement;
-  const jModel = h("input", { class: "inp", placeholder: "model" }) as HTMLInputElement;
+  const jId = h("input", { class: "inp", placeholder: t("settings.judgeIdPh"), value: settings["judge.default.id"] ?? "" }) as HTMLInputElement;
+  const jUrl = h("input", { class: "inp", placeholder: t("settings.baseUrl") }) as HTMLInputElement;
+  const jKey = h("input", { class: "inp", type: "password", placeholder: t("settings.apiKeyPh") }) as HTMLInputElement;
+  const jModel = h("input", { class: "inp", placeholder: t("settings.model") }) as HTMLInputElement;
 
   main.appendChild(
     card(
-      "LLM judge endpoints",
+      t("settings.judges"),
       null,
-      h(
-        "p",
-        { class: "caption mb-3" },
-        "judges are pluggable: reference the judge id in an experiment's eval config. built-in “mock-judge” is deterministic and offline. calibrate any LLM judge on labeled examples before trusting it (agreement ≥ 0.8)."
-      ),
+      h("p", { class: "caption mb-3" }, t("settings.judgeNote")),
       Object.keys(settings).filter((k) => k.startsWith("judge.")).length
         ? h(
             "div",
@@ -86,14 +83,14 @@ export async function renderSettings(main: HTMLElement) {
       h(
         "div",
         { class: "grid grid-cols-4 gap-3 mb-3" },
-        field("judge id", jId),
-        field("base url", jUrl),
-        field("api key", jKey),
-        field("model", jModel)
+        field(t("settings.judgeId"), jId),
+        field(t("settings.baseUrl"), jUrl),
+        field(t("settings.apiKey"), jKey),
+        field(t("settings.model"), jModel)
       ),
-      busyButton("save judge", "btn-primary", async () => {
+      busyButton(t("settings.saveJudge"), "btn-primary", async () => {
         const idv = jId.value.trim();
-        if (!idv || !jUrl.value.trim()) throw new Error("judge id and base url are required");
+        if (!idv || !jUrl.value.trim()) throw new Error(t("settings.judgeRequired"));
         await put("/api/settings", {
           [`judge.${idv}.baseUrl`]: jUrl.value.trim(),
           [`judge.${idv}.apiKey`]: jKey.value.trim(),
@@ -105,17 +102,7 @@ export async function renderSettings(main: HTMLElement) {
   );
 
   // ---- about ----
-  main.appendChild(
-    card(
-      "pipeline / CI",
-      null,
-      h(
-        "div",
-        { class: "codeblock" },
-        `# run evals for an experiment and gate the result (exit 1 on regression):\nbun run pipeline <experimentId> [outDir]\n# artifacts: timing.json · grading.json (per-assertion PASS/FAIL + evidence) · benchmark.json (mean+stddev+delta)`
-      )
-    )
-  );
+  main.appendChild(card(t("settings.pipeline"), null, h("div", { class: "codeblock" }, t("settings.pipelineHelp"))));
 }
 
 function summarizeConfig(e: any): string {

@@ -3,6 +3,7 @@
 import { get } from "../api.ts";
 import { h, clear, fmtNum } from "../dom.ts";
 import { card, pageHeader, passChip, table } from "../components.ts";
+import { t, tv } from "../i18n.ts";
 
 const STEP_COLORS: Record<string, string> = {
   llm: "#1a73e8",
@@ -19,12 +20,17 @@ export async function renderRun(main: HTMLElement, id: string) {
 
   main.appendChild(
     pageHeader(
-      h("span", { class: "flex items-center gap-2" }, `run · ${sample?.name ?? run.sampleId}`, passChip(run.grading.pass)),
-      h("a", { class: "btn-secondary", href: `#/experiments/${run.experimentId}` }, "← experiment")
+      h("span", { class: "flex items-center gap-2" }, t("run.title", { sample: sample?.name ?? run.sampleId }), passChip(run.grading.pass)),
+      h("a", { class: "btn-secondary", href: `#/experiments/${run.experimentId}` }, t("run.backToExperiment"))
     )
   );
   main.appendChild(
-    h("p", { class: "caption mb-4 -mt-2" }, `arm: ${run.arm} · attempt ${run.attempt} · ${run.timing.durationMs}ms · ${run.tokens.input + run.tokens.output} tokens${run.selectedSkill ? ` · skill: ${run.selectedSkill}` : ""}`)
+    h(
+      "p",
+      { class: "caption mb-4 -mt-2" },
+      t("run.meta", { arm: tv("arm", run.arm), attempt: run.attempt, ms: run.timing.durationMs, tokens: run.tokens.input + run.tokens.output }) +
+        (run.selectedSkill ? t("run.metaSkill", { skill: run.selectedSkill }) : "")
+    )
   );
 
   const grid = h("div", { class: "grid grid-cols-5 gap-4" });
@@ -36,13 +42,13 @@ export async function renderRun(main: HTMLElement, id: string) {
 
   left.appendChild(
     card(
-      "grading — per-assertion",
+      t("run.grading"),
       null,
       table(
-        ["assertion", "metric", "score", "verdict"],
+        [t("table.assertion"), t("table.metric"), t("table.score"), t("table.verdict")],
         run.grading.assertions.map((a: any) => [
           h("span", { title: a.evidence }, a.name),
-          h("span", { class: "caption" }, a.metric.replaceAll("_", " ")),
+          h("span", { class: "caption" }, tv("metric", a.metric) === a.metric ? a.metric.replaceAll("_", " ") : tv("metric", a.metric)),
           h("span", { class: "mono" }, fmtNum(a.score)),
           passChip(a.pass),
         ])
@@ -50,7 +56,7 @@ export async function renderRun(main: HTMLElement, id: string) {
       h(
         "details",
         { class: "mt-2" },
-        h("summary", { class: "caption cursor-pointer" }, "evidence"),
+        h("summary", { class: "caption cursor-pointer" }, t("common.evidence")),
         ...run.grading.assertions.map((a: any) =>
           h("div", { class: "mt-2" }, h("div", { class: "caption font-medium" }, a.name), h("pre", { class: "codeblock" }, a.evidence))
         )
@@ -62,21 +68,21 @@ export async function renderRun(main: HTMLElement, id: string) {
     const se = run.grading.sideEffect;
     left.appendChild(
       card(
-        "side-effect endpoints",
+        t("run.sideEffects"),
         null,
         h(
           "div",
           { class: "flex flex-col gap-2" },
-          seRow("L1 semantic acceptance", se.semanticAcceptance),
-          seRow("L2 audit-visible evidence", se.auditEvidence),
-          seRow("L3 sandbox tool-state harm", se.sandboxHarm)
+          seRow(t("run.seL1"), se.semanticAcceptance),
+          seRow(t("run.seL2"), se.auditEvidence),
+          seRow(t("run.seL3"), se.sandboxHarm)
         ),
-        h("p", { class: "caption mt-2" }, "graded independently — a semantic pass never implies side-effect safety; effects only ever touch the emulated sandbox")
+        h("p", { class: "caption mt-2" }, t("run.seNote"))
       )
     );
   }
 
-  left.appendChild(card("output", null, h("pre", { class: "codeblock max-h-64 overflow-y-auto" }, run.output || "(empty)")));
+  left.appendChild(card(t("run.output"), null, h("pre", { class: "codeblock max-h-64 overflow-y-auto" }, run.output || t("run.emptyOutput"))));
 
   // ---- right: trace timeline + replay ----
   let cursor = -1; // -1 = show all
@@ -104,10 +110,10 @@ export async function renderRun(main: HTMLElement, id: string) {
               "div",
               { class: "px-3 pb-3 flex flex-col gap-2" },
               s.effectivePrompt
-                ? h("details", {}, h("summary", { class: "caption cursor-pointer" }, "effective prompt at this step"), h("pre", { class: "codeblock mt-1 max-h-48 overflow-y-auto" }, s.effectivePrompt))
+                ? h("details", {}, h("summary", { class: "caption cursor-pointer" }, t("run.effectivePrompt")), h("pre", { class: "codeblock mt-1 max-h-48 overflow-y-auto" }, s.effectivePrompt))
                 : null,
-              s.input ? h("div", {}, h("div", { class: "caption" }, "input"), h("pre", { class: "codeblock" }, s.input)) : null,
-              s.output ? h("div", {}, h("div", { class: "caption" }, "output"), h("pre", { class: `codeblock ${s.output.startsWith("ERROR") ? "!text-fail" : ""}` }, s.output)) : null
+              s.input ? h("div", {}, h("div", { class: "caption" }, t("common.input")), h("pre", { class: "codeblock" }, s.input)) : null,
+              s.output ? h("div", {}, h("div", { class: "caption" }, t("common.output")), h("pre", { class: `codeblock ${s.output.startsWith("ERROR") ? "!text-fail" : ""}` }, s.output)) : null
             )
           : null
       );
@@ -118,16 +124,16 @@ export async function renderRun(main: HTMLElement, id: string) {
   const renderControls = () => {
     clear(controls);
     controls.append(
-      h("button", { class: "btn-secondary", onclick: () => { cursor = -1; renderTimeline(); renderControls(); } }, "show all"),
-      h("button", { class: "btn-secondary", onclick: () => { cursor = Math.max(0, cursor <= 0 ? 0 : cursor - 1); renderTimeline(); } }, "⏮ prev"),
-      h("button", { class: "btn-primary", onclick: () => { cursor = cursor >= steps.length - 1 ? steps.length - 1 : cursor + 1; renderTimeline(); } }, "step ▶"),
-      h("span", { class: "caption" }, `${steps.length} steps — click any step to inspect; “step” replays the trajectory one action at a time`)
+      h("button", { class: "btn-secondary", onclick: () => { cursor = -1; renderTimeline(); renderControls(); } }, t("run.showAll")),
+      h("button", { class: "btn-secondary", onclick: () => { cursor = Math.max(0, cursor <= 0 ? 0 : cursor - 1); renderTimeline(); } }, t("run.prev")),
+      h("button", { class: "btn-primary", onclick: () => { cursor = cursor >= steps.length - 1 ? steps.length - 1 : cursor + 1; renderTimeline(); } }, t("run.step")),
+      h("span", { class: "caption" }, t("run.stepsHint", { count: steps.length }))
     );
   };
   renderControls();
   renderTimeline();
 
-  grid.appendChild(h("div", { class: "col-span-3" }, card("trace timeline · replay", null, controls, timeline)));
+  grid.appendChild(h("div", { class: "col-span-3" }, card(t("run.timeline"), null, controls, timeline)));
 }
 
 function seRow(label: string, e: { pass: boolean; evidence: string }): HTMLElement {

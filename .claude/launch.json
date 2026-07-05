@@ -6,6 +6,12 @@
       "runtimeExecutable": "bun",
       "runtimeArgs": ["src/server/index.ts"],
       "port": 4747
+    },
+    {
+      "name": "studio-alt",
+      "runtimeExecutable": "env",
+      "runtimeArgs": ["PORT=4748", "bun", "src/server/index.ts"],
+      "port": 4748
     }
   ]
 }

@@ -1,23 +1,24 @@
 import { get } from "../api.ts";
-import { h, fmtNum, fmtTime } from "../dom.ts";
-import { card, causeChip, emptyState, pageHeader, passKChip, statusChip, table, typeChip } from "../components.ts";
+import { h, fmtTime } from "../dom.ts";
+import { card, causeChip, pageHeader, passKChip, statusChip, table } from "../components.ts";
+import { t, tv } from "../i18n.ts";
 
 export async function renderDashboard(main: HTMLElement) {
   const o = await get("/api/overview");
 
-  main.appendChild(pageHeader("dashboard"));
+  main.appendChild(pageHeader(t("dashboard.title")));
 
   main.appendChild(
     h(
       "div",
       { class: "grid grid-cols-4 gap-3 mb-4" },
-      stat("targets", o.targets, `${o.prompts} prompt · ${o.skills} skill`),
-      stat("experiments", o.experiments, `${o.experimentsDone} completed`),
-      stat("failure attributions", o.attributions, "counterfactual-verified"),
+      stat(t("dashboard.statTargets"), o.targets, t("dashboard.statTargetsSub", { prompts: o.prompts, skills: o.skills })),
+      stat(t("dashboard.statExperiments"), o.experiments, t("dashboard.statExperimentsSub", { done: o.experimentsDone })),
+      stat(t("dashboard.statAttributions"), o.attributions, t("dashboard.statAttributionsSub")),
       stat(
-        "top root cause",
+        t("dashboard.statTopCause"),
         topCause(o.causeCounts)?.[1] ?? 0,
-        topCause(o.causeCounts)?.[0] ?? "none yet"
+        topCause(o.causeCounts) ? tv("cause", topCause(o.causeCounts)![0]) : t("dashboard.statNoneYet")
       )
     )
   );
@@ -31,19 +32,19 @@ export async function renderDashboard(main: HTMLElement) {
         "div",
         { class: "col-span-2" },
         card(
-          "recent experiments",
-          h("a", { class: "link text-[13px]", href: "#/experiments/new" }, "+ new experiment"),
+          t("dashboard.recentExperiments"),
+          h("a", { class: "link text-[13px]", href: "#/experiments/new" }, t("common.newExperiment")),
           o.recentExperiments.length === 0
-            ? h("p", { class: "caption py-4" }, "no experiments yet — create a target and run one")
+            ? h("p", { class: "caption py-4" }, t("dashboard.emptyExperiments"))
             : table(
-                ["experiment", "status", "pass^k", "gate", "when"],
+                [t("table.experiment"), t("table.status"), "pass^k", t("table.gate"), t("table.when")],
                 o.recentExperiments.map((e: any) => {
                   const cand = e.benchmark?.arms?.find((a: any) => a.arm === "candidate" || a.arm === "with-skill");
                   return [
                     h("a", { class: "link", href: `#/experiments/${e.id}` }, e.name),
                     statusChip(e.status),
                     cand ? passKChip(cand.k, cand.passK) : "–",
-                    e.benchmark?.gate ? (e.benchmark.gate.pass ? h("span", { class: "chip-pass" }, "gate PASS") : h("span", { class: "chip-fail" }, "gate FAIL")) : "–",
+                    e.benchmark?.gate ? (e.benchmark.gate.pass ? h("span", { class: "chip-pass" }, t("common.gatePass")) : h("span", { class: "chip-fail" }, t("common.gateFail"))) : "–",
                     h("span", { class: "caption" }, fmtTime(e.createdAt)),
                   ];
                 })
@@ -51,10 +52,10 @@ export async function renderDashboard(main: HTMLElement) {
         )
       ),
       card(
-        "root causes",
+        t("dashboard.rootCauses"),
         null,
         causes.length === 0
-          ? h("p", { class: "caption py-4" }, "run attribution on a finished experiment to populate")
+          ? h("p", { class: "caption py-4" }, t("dashboard.emptyCauses"))
           : h(
               "div",
               { class: "flex flex-col gap-2" },
@@ -74,7 +75,7 @@ export async function renderDashboard(main: HTMLElement) {
                   )
                 );
               }),
-              h("a", { class: "link text-[13px] mt-1", href: "#/attribution" }, "view all attributions →")
+              h("a", { class: "link text-[13px] mt-1", href: "#/attribution" }, t("dashboard.viewAllAttributions"))
             )
       )
     )
